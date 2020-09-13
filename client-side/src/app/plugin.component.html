@@ -1,0 +1,20 @@
+<div id="editor-container" class="plugin-container">
+  <div id="pluginHeader" class="header-content">
+    <div class="content pepperi-border-bottom">
+      <div class="left-container spacing-element-negative pull-left flip">
+        <div class="spacing-element title">
+          {{ "Plugin_Title" | translate }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pluginBody" class="main-content" *ngIf="installing == false">
+    <app-import-atd></app-import-atd>
+    <!-- <app-export-atd></app-export-atd> -->
+
+    <!-- <ul>
+            <li *ngFor="let activity of activityTypes">{{activity.Value}}</li>
+        </ul> -->
+  </div>
+</div>

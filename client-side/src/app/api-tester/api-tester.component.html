@@ -1,0 +1,16 @@
+<div class="content">
+    <mat-card>
+        <label class="lblTitle">{{ 'Test_Prompt_Title' | translate }} </label>
+        <mat-select [(ngModel)]='selectedActivity'>
+            <mat-option>Please Select A Value</mat-option>
+            <mat-option *ngFor="let activity of activityTypes" [value]='activity.Key'>{{activity.Value}}</mat-option>
+        </mat-select>
+        <button type="button" class="btn pepperi-button mat-button strong color-main sm pull-right flip" (click)="exportAtd(selectedActivity)">
+            {{ 'Submit_Btn_Title' | translate }}
+        </button>
+    </mat-card>
+
+    <mat-card *ngIf="data">
+        <a href={{data}} mat-menu-item>{{data}}</a>
+    </mat-card>
+</div>

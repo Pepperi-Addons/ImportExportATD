@@ -1,0 +1,78 @@
+<div class="content">
+  <mat-card>
+    <label class="lblTitle">Import Activity Type Definition</label>
+    <!-- <mat-select [(ngModel)]='selectedActivity'>
+            <input class="ng-hide" id="input-file-id" multiple type="file" />
+            <label for="input-file-id" class="btn pepperi-button mat-button strong color-main sm pull-left flip">Choose Files</label>
+            <input id="file-field" name="file-field" (change)="uploadFile($event)" type="file" accept=".png,.jpg,.jpeg">
+            <button mat-raised-button color="primary" class="btn pepperi-button mat-button strong color-main sm pull-left flip" (click)="uploadFile($event)">
+
+        </mat-select> -->
+    <!-- <button type="button" class="btn pepperi-button mat-button strong color-main sm pull-right flip" (click)="exportAtd(selectedActivity)">
+            {{ 'Submit_Btn_Title' | translate }}
+        </button> -->
+    <div class="container" *ngIf="!showConflictResolution">
+      <mat-select [(ngModel)]="selectedActivity">
+        <mat-option>Please Select A Value</mat-option>
+        <mat-option
+          *ngFor="let activity of activityTypes"
+          [value]="activity.Key"
+          >{{ activity.Value }}</mat-option
+        >
+      </mat-select>
+      <input
+        id="file-field"
+        name="file-field"
+        (change)="onFileSelect($event)"
+        type="file"
+        accept=".json"
+      />
+      <p class="file-name" *ngIf="!file; else fileName"></p>
+      <ng-template #fileName>
+        <p
+          class="btn pepperi-button mat-button strong color-main sm pull-left flipbtn pepperi-button mat-button strong color-main sm pull-left flip"
+        >
+          {{ file?.name }}
+        </p>
+      </ng-template>
+      <button
+        type="button"
+        class="btn pepperi-button mat-button strong color-main sm pull-left flip"
+        (click)="importAtd()"
+      >
+        Import
+      </button>
+    </div>
+    <div class="listContainer">
+      <div class="rowBody">
+        <div class="genericCont">
+          <ndc-dynamic
+            #topBarComp
+            [ndcDynamicComponent]="topBarComponent"
+            [ndcDynamicInputs]="topBarInputs"
+            [ndcDynamicOutputs]="topBarOutputs"
+          >
+          </ndc-dynamic>
+        </div>
+        <div id="mainContent" class="main-content row">
+          <div class="main-layout pull-right flip">
+            <div #pepperiListCont class="content">
+              <ndc-dynamic
+                #pepperiListComp
+                [ndcDynamicComponent]="pepperiListComponent"
+                [ndcDynamicInputs]="pepperiListInputs"
+                [ndcDynamicOutputs]="pepperiListOutputs"
+                (ndcDynamicCreated)="pepperiListOnInit($event, apiEndpoint)"
+              >
+              </ndc-dynamic>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </mat-card>
+
+  <mat-card *ngIf="data">
+    <a href="{{ data }}" mat-menu-item>{{ data }}</a>
+  </mat-card>
+</div>
