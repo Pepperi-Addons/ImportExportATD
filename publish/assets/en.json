@@ -1,5 +1,10 @@
 {
-    "Plugin_Title": "Export Import ATD plugin",
-    "Test_Prompt_Title": "Select the activity you want to export",
-    "Submit_Btn_Title": "Export"
+  "Plugin_Title": "Export Import ATD plugin",
+  "Test_Prompt_Title": "Select the activity you want to export",
+  "Submit_Btn_Title": "Export",
+  "Resulotion_ConflictResolutionColumn": "Resulotion",
+  "Status_ConflictResolutionColumn": "Status",
+  "Name_ConflictResolutionColumn": "Name",
+  "Object_ConflictResolutionColumn": "Object",
+  "Conflict_Resolution_Title": "Conflict Resolution"
 }

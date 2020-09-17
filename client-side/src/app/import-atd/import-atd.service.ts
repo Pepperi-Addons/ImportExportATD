@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { Injectable, Type } from "@angular/core";
 //@ts-ignore
 import { AddonService } from "pepperi-addon-service";
 import {
@@ -7,8 +7,13 @@ import {
   ActivityTypeDefinition,
   Reference,
 } from "./../../../../server-side/api";
-import { PapiClient } from "@pepperi-addons/papi-sdk";
+import {
+  PapiClient,
+  FileStorage,
+  UserDefinedTableMetaData,
+} from "@pepperi-addons/papi-sdk";
 import jwt from "jwt-decode";
+import { ignoreElements } from "rxjs/operators";
 
 @Injectable({
   providedIn: "root",
@@ -40,8 +45,9 @@ export class ImportAtdService {
     //this.http.post(url, formData, request_options)
   }
 
-  buildReferencesMap(): ReferencesMap {
-    let referencesMap: ReferencesMap;
+  async buildReferencesMap(): Promise<ReferencesMap> {
+    let referencesMap = {} as ReferencesMap;
+    referencesMap.Pairs = [];
     console.log(`in buildReferencesMap`);
     let fileData;
     //console.log(`References: ${fileData.References}`);
@@ -53,11 +59,14 @@ export class ImportAtdService {
     this.exportedAtd = JSON.parse(this.exportedAtdstring);
     let exportReferences = this.exportedAtd.References;
 
-    let referencesData: any = this.GetReferencesData(exportReferences);
+    let referencesData: ReferenceData = await this.GetReferencesData(
+      exportReferences
+    );
+
     exportReferences.forEach((ref) => {
-      let referencesList: any = {};
+      let referencesList = [];
       if (
-        ref.Type == ReferenceType.Catalog ||
+        ref.Type === ReferenceType.Catalog ||
         ref.Type == ReferenceType.Profile ||
         ref.Type == ReferenceType.ActivityTypeDefinition ||
         ref.Type == ReferenceType.CustomizationFile
@@ -76,11 +85,16 @@ export class ImportAtdService {
             referencesList = referencesData.files;
             break;
         }
+
         referencesList.forEach((element) => {
-          if (element.InternalID === ref.ID) {
+          if (element.InternalID && element.InternalID.toString() === ref.ID) {
             this.addReferencesPair(element, ref, referencesMap);
-          }
-          if (element.ExternalID === ref.Name) {
+          } else if (
+            element.ExternalID &&
+            element.ExternalID.toString() === ref.Name
+          ) {
+            this.addReferencesPair(element, ref, referencesMap);
+          } else if (element.Name && element.Name.toString() === ref.Name) {
             this.addReferencesPair(element, ref, referencesMap);
           }
         });
@@ -88,34 +102,47 @@ export class ImportAtdService {
         ref.Type == ReferenceType.UserDefinedTable ||
         ref.Type == ReferenceType.Filter
       ) {
-        switch (ref.Type) {
-          case ReferenceType.UserDefinedTable:
+        switch (ref.Type.toString()) {
+          case ReferenceType[ReferenceType.UserDefinedTable]:
             referencesList = referencesData.udts;
+
             referencesList.forEach((element) => {
-              if (element.InternalID === ref.ID) {
+              if (
+                element.InternalID &&
+                element.InternalID.toString() === ref.ID
+              ) {
                 this.addReferencesPair(element, ref, referencesMap);
               }
-              if (element.FileName === ref.Name) {
+              if (
+                element.FileName &&
+                element.FileName.toString() === ref.Name
+              ) {
                 this.addReferencesPair(element, ref, referencesMap);
               }
             });
+
             break;
-          case ReferenceType.Filter:
+
+          case ReferenceType[ReferenceType.Filter]:
             referencesList = referencesData.filters;
             referencesList.forEach((element) => {
-              if (element.InternalID === ref.ID) {
+              if (element.FileName && element.FileName === ref.ID) {
                 this.addReferencesPair(element, ref, referencesMap);
               }
-              if (element.TableID === ref.Name) {
+              if (element.TableID && element.TableID === ref.Name) {
                 this.addReferencesPair(element, ref, referencesMap);
               }
             });
+
             break;
         }
       }
     });
 
-    console.log(referencesData);
+    console.log("referencesData" + referencesData);
+    console.log("referencesMap: " + referencesMap);
+
+    referencesMap;
     return referencesMap;
   }
 
@@ -124,68 +151,85 @@ export class ImportAtdService {
     ref: Reference,
     referencesMap: ReferencesMap
   ) {
-    let destinitionRef: Reference = {
-      ID: element.InternalID,
-      UUID: element.UUID,
-      Name: element.ExternalID,
-      Type: ReferenceType.Catalog,
-    };
-    let pair: Pair;
-    pair.origin = ref;
-    pair.destinition = destinitionRef;
+    console.log("at addReferencesPair");
+    let destinitionRef = {} as Reference;
 
+    destinitionRef.ID = element.InternalID.toString();
+    destinitionRef.UUID = element.UUID;
+    destinitionRef.Type = ref.Type;
+    if (element.ExternalID != undefined) {
+      destinitionRef.Name = element.ExternalID;
+    } else {
+      destinitionRef.Name = element.Name;
+    }
+    let originRef: Reference = {
+      ID: ref.ID,
+      UUID: ref.UUID,
+      Name: ref.Name,
+      Type: ref.Type,
+    };
+    let pair = {} as Pair;
+
+    pair.origin = originRef;
+    pair.destinition = destinitionRef;
     referencesMap.Pairs.push(pair);
   }
 
-  private GetReferencesData(
-    exportReferences: import("c:/Users/hadar.l/Documents/New Framwork Hadar Tests/ImportExportATD/server-side/api").Reference[]
-  ) {
+  private async GetReferencesData(
+    exportReferences: Reference[]
+  ): Promise<ReferenceData> {
     let profileIndex = exportReferences.findIndex(
-      (x) => x.Type.valueOf() === ReferenceType.Profile.valueOf()
+      (x) => x.Type === ReferenceType.Profile
     );
     let genericListIndex = exportReferences.findIndex(
-      (x) => x.Type == ReferenceType.GenericList
+      (x) => x.Type === ReferenceType.GenericList
     );
     let fileIndex = exportReferences.findIndex(
-      (x) => ReferenceType.CustomizationFile
+      (x) => x.Type === ReferenceType.CustomizationFile
     );
     let activityTypeDefinitionIndex = exportReferences.findIndex(
-      (x) => ReferenceType.ActivityTypeDefinition
+      (x) => x.Type === ReferenceType.ActivityTypeDefinition
     );
     let catalogIndex = exportReferences.findIndex(
-      (x) => x.Type == ReferenceType.Catalog
+      (x) => x.Type === ReferenceType.Catalog
     );
-    let filterIndex = exportReferences.findIndex((x) => ReferenceType.Filter);
+    let filterIndex = exportReferences.findIndex(
+      (x) => x.Type === ReferenceType.Filter
+    );
     let udtIndex = exportReferences.findIndex(
-      (x) => x.Type == ReferenceType.UserDefinedTable
+      (x) => x.Type === ReferenceType.UserDefinedTable
     );
-    let referencesData: any = {};
+    let referencesData = {} as ReferenceData;
 
     if (profileIndex > -1) {
-      this.getReferencesDataObject("/profiles").then(
+      await this.getReferencesDataObject("/profiles").then(
         (res) => (referencesData.profiles = res)
       );
     }
     if (genericListIndex > -1) {
     }
     if (fileIndex > -1) {
-      this.getReferencesFiles().then((res) => (referencesData.files = res));
+      await this.getReferencesFiles().then(
+        (res) => (referencesData.files = res)
+      );
     }
     if (activityTypeDefinitionIndex > -1) {
-      this.getReferencesTypes().then((res) => (referencesData.types = res));
+      await this.getReferencesTypes().then(
+        (res) => (referencesData.types = res)
+      );
     }
     if (catalogIndex > -1) {
-      this.getReferencesDataObject("Catalog").then(
+      await this.getReferencesDataObject("Catalog").then(
         (res) => (referencesData.catalogs = res)
       );
     }
     if (filterIndex > -1) {
-      this.getReferencesMetaDataObject("filters").then(
+      await this.getReferencesMetaDataObject("filters").then(
         (res) => (referencesData.filters = res)
       );
     }
     if (udtIndex > -1) {
-      this.getUDTs().then((res) => (referencesData.udts = res));
+      await this.getUDTs().then((res) => (referencesData.udts = res));
     }
     return referencesData;
   }
@@ -256,13 +300,32 @@ export interface KeyValuePair<T> {
   Key: string;
   Value: T;
 }
+export interface Conflict {
+  Object: string;
+  Name: string;
+  Status: string;
+  Options: KeyValuePair<String>[];
+}
+export interface ReferenceData {
+  filters: [];
+  udts: UserDefinedTableMetaData[];
+  files: FileStorage[];
+  //@ts-ignore
+  types: Type[];
+  profiles: [];
+  catalogs: [];
+}
 export enum ReferenceType {
-  None = 0,
-  Profile = 1,
-  GenericList = 2,
-  CustomizationFile = 3,
-  ActivityTypeDefinition = 4,
-  Catalog = 5,
-  Filter = 6,
-  UserDefinedTable = 7,
+  None,
+  Profile,
+  GenericList,
+  CustomizationFile,
+  ActivityTypeDefinition,
+  Catalog,
+  Filter,
+  UserDefinedTable,
+}
+export enum ResolutionOption {
+  Blank = 0,
+  Overwrite = 1,
 }

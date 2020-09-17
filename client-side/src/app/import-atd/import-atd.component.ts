@@ -3,15 +3,24 @@ import { TranslateService } from "@ngx-translate/core";
 import { AddonApiService } from "../addon-api.service";
 // @ts-ignore
 import { UserService } from "pepperi-user-service";
-import { KeyValuePair, ImportAtdService } from "./import-atd.service";
+import {
+  KeyValuePair,
+  ImportAtdService,
+  Conflict,
+  ReferenceType,
+} from "./import-atd.service";
 import { PluginService } from "../plugin.service";
 import { PapiClient } from "@pepperi-addons/papi-sdk";
 import { __param } from "tslib";
 import {
   ActivityTypeDefinition,
-  ReferenceType,
   ReferencesMap,
+  Pair,
 } from "../../../../server-side/api";
+import { disableDebugTools } from "@angular/platform-browser";
+import { ListViewComponent } from "../list-view/list-view.component";
+import { pairs } from "rxjs";
+import { exception } from "console";
 
 @Component({
   selector: "app-import-atd",
@@ -19,7 +28,7 @@ import {
   styleUrls: ["./import-atd.component.scss"],
 })
 export class ImportAtdComponent implements OnInit {
-  // @ViewChild('fileInput')
+  @ViewChild(ListViewComponent, { static: false }) typesList: ListViewComponent;
 
   file: File | null = null;
   data: any;
@@ -30,6 +39,8 @@ export class ImportAtdComponent implements OnInit {
   selectedActivity: any;
   selectedFile: File;
   showConflictResolution: boolean = false;
+  conflictsList: Conflict[] = [];
+
   constructor(
     private translate: TranslateService,
     private backendApiService: AddonApiService,
@@ -50,39 +61,62 @@ export class ImportAtdComponent implements OnInit {
   }
   ngOnInit(): void {}
 
-  importAtd() {
+  async importAtd() {
     console.log(`selectedActivity: ${this.selectedActivity}`);
-    let referenceMap: ReferencesMap = this.importatdService.buildReferencesMap();
+
+    let referenceMap: ReferencesMap = await this.importatdService.buildReferencesMap();
+    
     if (referenceMap && referenceMap.Pairs.length > 0) {
+      let identifier: String = ``;
       this.showConflictResolution = true;
+      debugger;
+      this.conflictsList = this.getConflictsResulotion(referenceMap);
+      this.typesList ? this.typesList.reload() : null;
     }
-    // const self = this;
-    // console.log(`in exportAtd`);
-    // let subtype =  `141056`;
-    // self.userService.setShowLoading(true);
-    // // call to export_atd
-    // let typeString = ``;
-    // this.importatdService.papiClient.get(`types/${subtypeid}`).then((type)=>{
-    //   if (type.Type === 2){
-    //     typeString=`transactions`
-    //   }
-    //   else{
-    //     typeString=`activities`
-    //   }
-    //   const exportAtdResult = this.importatdService.papiClient.addons.api.uuid(this.importatdService.pluginUUID).file('api').func('export_atd').get({ type:typeString,  subtype:subtypeid }).then(
-    //     (res: any) => {
-    //       self.data = res;
-    //       self.userService.setShowLoading(false)
-    //   },
-    //   (error) => {},
-    //   )
-    // });
+  }
+
+  getConflictsResulotion(referenceMap: ReferencesMap): Conflict[] {
+    let conflicts: Conflict[] = [];
+    this.importatdService.exportedAtd.References.forEach((ref) => {
+      
+      if (referenceMap === null || referenceMap.Pairs.length === 0) {
+        //throw new exception("Error");
+      } else {
+        let referencedPair: Pair = referenceMap.Pairs.find(
+          (pair) => pair.origin.ID === ref.ID || pair.origin.Name === ref.Name
+        );
+        if (referencedPair === null) {
+          // For objects with a path (such as custom form), if a matching object does not exist, then continue (create this object in the Execution step).
+          if (ref.Type === ReferenceType.CustomizationFile) {
+            return;
+          } else {
+            //throw new exception("Error");
+          }
+        } else if (referencedPair.origin.ID === referencedPair.destinition.ID) {
+          return;
+        } else if (
+          referencedPair.origin.Name === referencedPair.destinition.Name
+        ) {
+        let types:KeyValuePair<string>[] = [];
+        types.push({ Key: "0", Value: "0"})
+
+          const conflict: Conflict = {
+            Name: referencedPair.destinition.Name,
+            Object: ReferenceType[referencedPair.destinition.Type],
+            Status: `${ReferenceType[referencedPair.destinition.Type]} with the same name exists`,
+            Options: types
+          };
+          conflicts.push(conflict);
+        }
+      }
+    });
+    return conflicts;
   }
 
   onFileSelect(event) {
     let files = event.target.files;
     if (files.length > 0) {
-      console.log(files[0]); // You will see the file
+      console.log(files[0]);
       this.importatdService.uploadFile(files[0]);
     }
     console.log("onFileSelect");

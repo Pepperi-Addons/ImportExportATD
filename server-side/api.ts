@@ -316,7 +316,7 @@ async function getWorkflowReferences(service: MyService, references: Reference[]
         const reference: Reference = {
             ID: element.ID,
             Name: element.Name,
-            Type: element.Type,
+            Type: (<any>ReferenceType)[element.Type],
             UUID: element.UUID,
             Path: element.Path,
         };
@@ -572,7 +572,7 @@ enum WorkflowActionsWithRerefences {
     CopyOrder = 36,
     DistributeActivityWithRef = 38,
 }
-export enum ReferenceType {
+enum ReferenceType {
     None = 0,
     Profile = 1,
     GenericList = 2,

@@ -43,32 +43,13 @@
         Import
       </button>
     </div>
-    <div class="listContainer">
-      <div class="rowBody">
-        <div class="genericCont">
-          <ndc-dynamic
-            #topBarComp
-            [ndcDynamicComponent]="topBarComponent"
-            [ndcDynamicInputs]="topBarInputs"
-            [ndcDynamicOutputs]="topBarOutputs"
-          >
-          </ndc-dynamic>
-        </div>
-        <div id="mainContent" class="main-content row">
-          <div class="main-layout pull-right flip">
-            <div #pepperiListCont class="content">
-              <ndc-dynamic
-                #pepperiListComp
-                [ndcDynamicComponent]="pepperiListComponent"
-                [ndcDynamicInputs]="pepperiListInputs"
-                [ndcDynamicOutputs]="pepperiListOutputs"
-                (ndcDynamicCreated)="pepperiListOnInit($event, apiEndpoint)"
-              >
-              </ndc-dynamic>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- <div id="conflictResolution" class="wide"*ngIf="showConflictResolution"> -->
+    <div id="conflictResolution" class="wide" *ngIf="showConflictResolution">
+      <app-list-view
+        #conflictsListView
+        [conflicts]="conflictsList"
+        (actionClicked)="onActionClicked($event)"
+      ></app-list-view>
     </div>
   </mat-card>
 

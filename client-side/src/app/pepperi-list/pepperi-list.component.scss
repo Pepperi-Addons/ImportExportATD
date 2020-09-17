@@ -1,0 +1,39 @@
+.listContainer {
+    width: 100%;
+    table {
+        width: 100%;
+    }
+    .rowHeader {
+        display: flex;
+        padding-bottom: 1rem;
+        padding-top: 1rem;
+        p {
+            white-space: pre-wrap;
+        }
+    }
+
+    .rowBody {
+        .topBarDynCont {
+            clear: both;
+            padding-top: .5rem;
+            .table-body {
+                overflow-y: auto;
+            }
+        }
+        #mainContent {
+            padding: 0;
+            width: 100%;
+            .main-layout {
+                padding: 0;
+                width: inherit;
+                .content {
+                    margin: 0 !important;
+                }
+            }
+        }
+    }
+}
+
+
+
+
