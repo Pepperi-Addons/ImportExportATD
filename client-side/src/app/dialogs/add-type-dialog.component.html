@@ -1,0 +1,85 @@
+<div class="dialog">
+  <h2 mat-dialog-title class="mat-dialog-title pepperi-border-bottom">
+    <span *ngIf="title?.length">{{ title }}</span>
+  </h2>
+  <div mat-dialog-content class="mat-dialog-content">
+    <div>
+      <pepperi-select
+        [required]="true"
+        [(value)]="dialogData.selectedActivity"
+        [disabled]="mode == 'Edit'"
+        [options]="activityTypes"
+        [label]="'Archive_TypesModal_ActivityTypeTitle' | translate"
+        (formValidationChanged)="isActivityValid = $event"
+      ></pepperi-select>
+    </div>
+    <div>
+      <pepperi-textbox
+        [label]="'Archive_TypesModal_HistoryTitle' | translate"
+        [(value)]="dialogData.numOfMonths"
+        [minValue]="1"
+        [maxValue]="dialogData.maxHistory"
+        [type]="'int'"
+        (formValidationChanged)="isNumOfMonthsValid = $event"
+        [required]="true"
+      ></pepperi-textbox>
+    </div>
+    <div class="minItems pepperi-border-top">
+      <h4>
+        {{ "Archive_TypesModal_MinItemsSectionTitle" | translate }}
+      </h4>
+      <p class="body-xs">
+        {{ "Archive_TypesModal_MinItemsDisclaimer" | translate }}
+      </p>
+      <pepperi-textbox
+        [label]="'Archive_TypesModal_MinItemsTitle' | translate"
+        [(value)]="dialogData.minItems"
+        [type]="'int'"
+        [minValue]="1"
+        [maxValue]="9999"
+        (formValidationChanged)="isMinItemsValid = $event"
+      ></pepperi-textbox>
+    </div>
+  </div>
+  <div
+    mat-dialog-actions
+    class="pepperi-border-top mat-dialog-actions split-actions"
+    style="justify-content: flex-end"
+  >
+    <div class="spacing-element-negative">
+      <button
+        class="spacing-element pepperi-button md weak mat-button"
+        mat-button
+        [mat-dialog-close]
+      >
+        <span class="mat-button-wrapper">
+          {{ "Archive_Cancel" | translate }}
+        </span>
+        <div class="mat-button-ripple mat-ripple" matripple></div>
+        <div class="mat-button-focus-overlay"></div>
+      </button>
+      <button
+        class="spacing-element pepperi-button md strong mat-button"
+        mat-button
+        [mat-dialog-close]="dialogData"
+        [ngClass]="{
+          disabled:
+            isNumOfMonthsValid == false ||
+            isMinItemsValid == false ||
+            isActivityValid == false
+        }"
+        [disabled]="
+          isNumOfMonthsValid == false ||
+          isMinItemsValid == false ||
+          isActivityValid == false
+        "
+      >
+        <span class="mat-button-wrapper">
+          {{ (mode == "Add" ? "Archive_Add" : "Archive_Update") | translate }}
+        </span>
+        <div class="mat-button-ripple mat-ripple" matripple></div>
+        <div class="mat-button-focus-overlay"></div>
+      </button>
+    </div>
+  </div>
+</div>

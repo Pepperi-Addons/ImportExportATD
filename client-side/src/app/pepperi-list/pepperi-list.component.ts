@@ -26,6 +26,9 @@ import { TranslateService } from "@ngx-translate/core";
 
 // @ts-ignore
 import { GridDataView, DataViewFieldTypes } from "@pepperi-addons/papi-sdk";
+import { Conflict } from "../../../../models/Conflict";
+import { ResolutionOption } from "../../../../models/ResolutionOption.enum";
+
 //import { PluginJsonFilter } from 'src/app/plugin.model';
 
 export interface PepperiListService {
@@ -39,13 +42,13 @@ export interface PepperiListService {
     Filter: (obj: any) => boolean;
     Action: (obj: any) => void;
   }[];
-  //   rightButtons?(
-  //     translates
-  //   ): {
-  //     Title: string;
-  //     Icon: string;
-  //     Action: () => void;
-  //   }[];
+  // rightButtons?(
+  //   translates
+  // ): {
+  //   Title: string;
+  //   Icon: string;
+  //   Action: () => void;
+  // }[];
 }
 
 @Component({
@@ -65,11 +68,20 @@ export class PepperiListContComponent implements OnInit {
   @Input()
   service: PepperiListService;
 
+  @Input()
+  pepperiListOutputs;
+
+  @Input() conflicts: Conflict[];
+
   list: any[];
+  pepperiListOutputsTest: any; // to remove
+  l: any;
+  pepperiListObj: any;
 
   pepperiListComponent = PepperiListComponent;
+
   pepperiListInputs;
-  pepperiListOutputs;
+
   topBarComponent = TopBarComponent;
   topBarInputs;
   topBarOutputs;
@@ -109,7 +121,7 @@ export class PepperiListContComponent implements OnInit {
           selectionTypeForActions: 1,
           firstFieldAsLink: false,
           listType: "",
-          isReport:false,
+          isReport: false,
           supportSorting: false,
           supportResizing: false,
           noDataFoundMsg: translates["Archive_TypesTable_NoItems"],
@@ -118,15 +130,22 @@ export class PepperiListContComponent implements OnInit {
             : null,
           top: 0,
         };
-        this.pepperiListOutputs = {
+        this.pepperiListOutputsTest = {
           notifyListChanged: (event) => this.onListChange(event),
           notifySortingChanged: (event) => this.onListSortingChange(event),
           notifyFieldClicked: (event) => this.onCustomizeFieldClick(event),
+          notifyValueChanged: (event) => {
+            let objectOndex = this.conflicts.findIndex(
+              (x) => x.UUID === event.Id
+            );
+            this.conflicts[objectOndex].Resolution = event.Value;
+            this.loadlist();
+          },
           notifySelectedItemsChanged: (event) =>
             this.selectedRowsChanged(event, translates),
         };
 
-        this.loadlist(apiEndpoint);
+        this.loadlist();
       });
   }
 
@@ -134,9 +153,7 @@ export class PepperiListContComponent implements OnInit {
 
   onListSortingChange(event) {}
 
-  onCustomizeFieldClick(event) {
-    // debugger;
-  }
+  onCustomizeFieldClick(event) {}
 
   selectedRowsChanged(selectedRowsCount, translates) {
     const selectData = this.pepperiListComp.componentRef.instance.getSelectedItemsData(
@@ -174,12 +191,12 @@ export class PepperiListContComponent implements OnInit {
         "Conflict_Resolution_Title",
       ])
       .subscribe((translates) => {
-        // const topRightButtons = [];
+        //const topRightButtons = [];
         const topLeftButtons = [];
         const dataView = this.service.getDataView(translates);
 
-        //let rightButtons = this.service.rightButtons(translates) || [];
-        //rightButtons = rightButtons.map((action) => {
+        // let rightButtons = this.service.rightButtons(translates) || [];
+        // rightButtons = rightButtons.map((action) => {
         //   return new TopBarButton(
         //     action.Title,
         //     () => action.Action(),
@@ -234,6 +251,10 @@ export class PepperiListContComponent implements OnInit {
       return "";
     }
 
+    if (Array.isArray(object[apiName])) {
+      return object[apiName];
+    }
+
     // support regular APINames & dot anotation
     if (apiName in object && object[apiName]) {
       return object[apiName].toString();
@@ -244,7 +265,7 @@ export class PepperiListContComponent implements OnInit {
     return this.getValue(object[arr[0]], arr.slice(1).join("."));
   }
 
-  async loadlist(apiEndpoint) {
+  async loadlist() {
     this.translate
       .get([
         "Resulotion_ConflictResolutionColumn",
@@ -252,24 +273,46 @@ export class PepperiListContComponent implements OnInit {
         "Name_ConflictResolutionColumn",
         "Object_ConflictResolutionColumn",
         "Conflict_Resolution_Title",
+        "Conflict_Resolution_Type_Owerwrite",
+        "Conflict_Resolution_Type_UseExist",
       ])
       .subscribe(async (translates) => {
         const dataView = this.service.getDataView(translates);
-        this.list = await this.service.getList();
+
+        this.list = this.conflicts;
+        const oldList = await this.service.getList();
         const rows: PepperiRowData[] = this.list.map((x) => {
           const res = new PepperiRowData();
           res.Fields = dataView.Fields.map((field, i) => {
-            return {
+            let t = {
               ApiName: field.FieldID,
               Title: field.Title,
+              Enabled:
+                field.Title === `Resulotion` &&
+                this.getValue(x, field.FieldID) !=
+                  ResolutionOption.toString(ResolutionOption.CreateNew)
+                  ? true
+                  : false,
               XAlignment: 1,
               FormattedValue: this.getValue(x, field.FieldID),
               Value: this.getValue(x, field.FieldID),
               ColumnWidth: dataView.Columns[i].Width,
               AdditionalValue: "",
-              OptionalValues: [],
+              OptionalValues: [
+                {
+                  Key: ResolutionOption.toString(ResolutionOption.UseExisting),
+                  Value: translates["Conflict_Resolution_Type_UseExist"],
+                },
+                {
+                  Key: ResolutionOption.toString(
+                    ResolutionOption.OverwriteExisting
+                  ),
+                  Value: translates["Conflict_Resolution_Type_Owerwrite"],
+                },
+              ],
               FieldType: DataViewFieldTypes[field.Type],
             };
+            return t;
           });
           return res;
         });
@@ -277,14 +320,15 @@ export class PepperiListContComponent implements OnInit {
         const pepperiListObj = this.pluginService.pepperiDataConverter.convertListData(
           rows
         );
+        this.pepperiListObj = pepperiListObj;
         const uiControl = pepperiListObj.UIControl;
         const l = pepperiListObj.Rows.map((row, i) => {
           row.UID = this.list[i].UUID || row.UID;
           const osd = new ObjectSingleData(uiControl, row);
-          osd.IsEditable = false;
+          osd.IsEditable = true;
           return osd;
         });
-
+        this.l = l;
         if (this.topBarComp) {
           this.listActions = this.getListActions(null, translates);
           this.topBarComp.componentRef.instance.listActionsData = null;

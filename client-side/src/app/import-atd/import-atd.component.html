@@ -44,12 +44,31 @@
       </button>
     </div>
     <!-- <div id="conflictResolution" class="wide"*ngIf="showConflictResolution"> -->
-    <div id="conflictResolution" class="wide" *ngIf="showConflictResolution">
+    <div
+      id="conflictResolution"
+      class="wide text-center"
+      *ngIf="showConflictResolution"
+    >
       <app-list-view
         #conflictsListView
         [conflicts]="conflictsList"
+        [pepperiListOutputs]="pepperiListOutputs"
         (actionClicked)="onActionClicked($event)"
       ></app-list-view>
+      <button
+        type="button"
+        class="btn pepperi-button mat-button strong color-main sm flip margin-right"
+        (click)="onCancelClicked(selectedActivity)"
+      >
+        {{ "Cancel_Btn_Title" | translate }}
+      </button>
+      <button
+        type="button"
+        class="btn pepperi-button mat-button strong color-main sm flip"
+        (click)="onOkClicked(selectedActivity)"
+      >
+        {{ "OK_Btn_Title" | translate }}
+      </button>
     </div>
   </mat-card>
 

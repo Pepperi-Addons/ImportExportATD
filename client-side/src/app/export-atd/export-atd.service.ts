@@ -3,7 +3,7 @@ import { Injectable } from "@angular/core";
 import { AddonService } from "pepperi-addon-service";
 import { PapiClient } from "@pepperi-addons/papi-sdk";
 import jwt from "jwt-decode";
-
+import { KeyValuePair } from "../../../../models/KeyValuePair";
 @Injectable({
   providedIn: "root",
 })
@@ -58,8 +58,4 @@ export class ExportAtdService {
       suppressLogging: true,
     });
   }
-}
-export interface KeyValuePair<T> {
-  Key: string;
-  Value: T;
 }

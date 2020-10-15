@@ -13,7 +13,7 @@ import {
 } from "../pepperi-list/pepperi-list.component";
 import { Router, ActivatedRoute } from "@angular/router";
 import { TranslateService } from "@ngx-translate/core";
-import { Conflict } from "../import-atd/import-atd.service";
+import { Conflict } from "../../../../models/Conflict";
 //import { ScheduledType } from "src/app/plugin.model";
 
 @Component({
@@ -27,11 +27,13 @@ export class ListViewComponent implements OnInit {
     ApiName: string;
     SelectedItem?: any;
   }> = new EventEmitter<{ ApiName: string; SelectedItem?: any }>();
+
   @Input() conflicts: Conflict[];
+
+  @Input() pepperiListOutputs;
 
   service: PepperiListService = {
     getDataView: (translates) => {
-      debugger;
       return {
         Context: {
           Name: "",
@@ -40,7 +42,7 @@ export class ListViewComponent implements OnInit {
         },
         Type: "Grid",
         Title: translates ? translates["Conflict_Resolution_Title"] : "",
-
+        IsEditble: true,
         Fields: [
           {
             FieldID: "Object",
@@ -49,6 +51,7 @@ export class ListViewComponent implements OnInit {
               ? translates["Object_ConflictResolutionColumn"]
               : "",
             Mandatory: false,
+            Enabled: false,
             ReadOnly: true,
           },
           {
@@ -58,6 +61,7 @@ export class ListViewComponent implements OnInit {
               ? translates["Name_ConflictResolutionColumn"]
               : "",
             Mandatory: false,
+            Enabled: false,
             ReadOnly: true,
           },
           {
@@ -66,11 +70,12 @@ export class ListViewComponent implements OnInit {
             Title: translates
               ? translates["Status_ConflictResolutionColumn"]
               : "",
+            Enabled: false,
             Mandatory: false,
             ReadOnly: true,
           },
           {
-            FieldID: "Options",
+            FieldID: "Resolution",
             Type: "ComboBox",
             Title: translates
               ? translates["Resulotion_ConflictResolutionColumn"]
@@ -121,7 +126,7 @@ export class ListViewComponent implements OnInit {
       ];
     },
 
-    //rightButtons: (translates) => {
+    // rightButtons: (translates) => {
     //   return [
     //     {
     //       Title: translates ? translates["Archive_TypesTable_AddAction"] : "",
@@ -129,11 +134,13 @@ export class ListViewComponent implements OnInit {
     //       Action: () => this.actionClicked.emit({ ApiName: "Add" }),
     //     },
     //   ];
-    //},
+    // },
 
     getList: () => {
       return new Promise((resolve, reject) => {
         if (this.conflicts) {
+          console.log("conflictlist: " + JSON.stringify(this.conflicts));
+
           resolve(this.conflicts);
         }
       });
@@ -156,6 +163,6 @@ export class ListViewComponent implements OnInit {
   ngOnChanges() {}
 
   reload() {
-    this.list.loadlist("");
+    this.list.loadlist();
   }
 }

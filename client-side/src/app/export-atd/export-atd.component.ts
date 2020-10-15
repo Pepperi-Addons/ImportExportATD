@@ -3,9 +3,10 @@ import { TranslateService } from "@ngx-translate/core";
 import { AddonApiService } from "../addon-api.service";
 // @ts-ignore
 import { UserService } from "pepperi-user-service";
-import { KeyValuePair, ExportAtdService } from "./export-atd.service";
+import { ExportAtdService } from "./export-atd.service";
 import { PluginService } from "../plugin.service";
 import { PapiClient } from "@pepperi-addons/papi-sdk";
+import { KeyValuePair } from "../../../../models/keyValuePair";
 
 @Component({
   selector: "app-export-atd",
@@ -46,7 +47,6 @@ export class ExportAtdComponent implements OnInit {
 
     const self = this;
     console.log(`in exportAtd`);
-    let subtype = `141056`;
     self.userService.setShowLoading(true);
     // call to export_atd
     let typeString = ``;
@@ -60,7 +60,7 @@ export class ExportAtdComponent implements OnInit {
       const exportAtdResult = this.exportatdService.papiClient.addons.api
         .uuid(this.exportatdService.pluginUUID)
         .file("api")
-        .func("export_atd")
+        .func("exportAtd")
         .get({ type: typeString, subtype: subtypeid })
         .then(
           (res: any) => {
@@ -100,7 +100,7 @@ export class ExportAtdComponent implements OnInit {
       .then((data) => {
         console.log(`data: ${JSON.stringify(data)}`);
         var fileContents = JSON.stringify(data);
-        var filename =`${this.selectedActivity}.json`;
+        var filename = `${this.selectedActivity}.json`;
         var filetype = "text/plain";
 
         var a = document.createElement("a");

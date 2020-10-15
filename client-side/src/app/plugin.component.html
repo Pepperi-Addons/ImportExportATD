@@ -10,8 +10,8 @@
   </div>
 
   <div id="pluginBody" class="main-content" *ngIf="installing == false">
-    <app-import-atd></app-import-atd>
-    <!-- <app-export-atd></app-export-atd> -->
+    <app-import-atd *ngIf="view == 'import'"></app-import-atd>
+    <app-export-atd *ngIf="view == 'export'"></app-export-atd>
 
     <!-- <ul>
             <li *ngFor="let activity of activityTypes">{{activity.Value}}</li>

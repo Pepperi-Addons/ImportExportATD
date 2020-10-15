@@ -24,7 +24,6 @@
     "@ngx-translate/core": "^11.0.1",
     "@ngx-translate/http-loader": "^4.0.0",
     "@pepperi-addons/client-api": "^1.0.7",
-    "@pepperi-addons/papi-sdk": "^1.13.1",
     "@pepperi/lib": "0.0.301",
     "html-minifier": "^4.0.0",
     "jwt-decode": "^2.2.0",

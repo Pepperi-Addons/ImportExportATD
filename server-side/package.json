@@ -37,11 +37,10 @@
     },
     "dependencies": {
         "@pepperi-addons/debug-server": "0.0.24",
-        "@pepperi-addons/papi-sdk": "^1.10.1",
-        "@pepperi-addons/scripts": "^1.0.18",
+        "@pepperi-addons/scripts": "^1.0.22",
         "@rollup/plugin-json": "^4.1.0",
         "jwt-decode": "^2.2.0",
-        "node-fetch": "^2.6.0",
+        "node-fetch": "^2.6.1",
         "query-string": "^5.1.1"
     }
 }

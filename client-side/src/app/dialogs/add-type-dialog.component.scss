@@ -1,0 +1,56 @@
+.pepperi-standalone {
+    .mat-dialog-content{
+        min-width: 26rem !important;
+    }
+}
+
+.mat-dialog-container {
+    padding:1rem 1rem .5rem 1rem;
+}
+
+.dialog {
+    max-width:26rem;
+    p {
+        margin:0;
+    }
+
+    .mat-dialog-title {
+        margin-bottom: 1rem;
+    }
+
+    .mat-dialog-content {
+        margin: 0 -1rem;
+        padding: 0 1rem;
+    }
+
+    .mat-form-title {
+        .required {
+            display: none;
+        }
+    }
+
+    .minItems  {
+        p {
+            margin-bottom:1rem;
+        }
+        pepperi-textbox.pepperi-field {
+            margin-bottom:0.5rem;
+        }
+    }
+
+    .mat-dialog-actions {
+        margin-bottom:0;
+        padding-top:1rem;
+    }
+}
+
+@media (max-width:460px) {
+    .pepperi-standalone {
+        max-width:90vw !important;
+    
+        .mat-dialog-content{
+            min-width: unset !important;
+        }
+    }       
+    
+}
