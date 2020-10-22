@@ -12,6 +12,7 @@ import jwt from "jwt-decode";
 import { ignoreElements } from "rxjs/operators";
 import { KeyValuePair } from "../../../../models/keyValuePair";
 import { ReferenceType } from "../../../../models/referenceType";
+import { Guid } from "../plugin.module";
 
 @Injectable({
   providedIn: "root",
@@ -74,14 +75,16 @@ export class ImportAtdService {
     //this.http.post(url, formData, request_options)
   }
 
-  async buildReferencesMap(): Promise<ReferencesMap> {
+  async buildReferencesMap(subtype: string): Promise<ReferencesMap> {
     let referencesMap = {} as ReferencesMap;
     referencesMap.Pairs = [];
+
     console.log(`in buildReferencesMap`);
     this.exportedAtd = JSON.parse(this.exportedAtdstring);
     let exportReferences = this.exportedAtd.References;
 
     let referencesData: ReferenceData = await this.GetReferencesData(
+      subtype,
       exportReferences
     );
 
@@ -90,13 +93,9 @@ export class ImportAtdService {
         let referencesDataList = [];
         referencesDataList = referencesData[ReferenceType.toString(ref.Type)];
         let referenceDataIdIndex = referencesDataList.findIndex(
-          (data) => data.InternalID && data.InternalID.toString() === ref.ID
+          (data) =>
+            data.InternalID && data.InternalID.toString() === ref.ID.toString()
         );
-        if (ref.Type === ReferenceType.GenericList) {
-          referenceDataIdIndex = referencesDataList.findIndex(
-            (data) => data.ID && data.ID.toString() === ref.UUID
-          );
-        }
         if (referenceDataIdIndex > -1) {
           this.addReferencesPair(
             referencesDataList[referenceDataIdIndex],
@@ -104,6 +103,8 @@ export class ImportAtdService {
             referencesMap
           );
         }
+      } else {
+        this.addReferencesPair(ref, ref, referencesMap);
       }
     });
     let referencesDataList = [];
@@ -123,6 +124,7 @@ export class ImportAtdService {
             let referenceDataNameIndex = referencesDataList.findIndex(
               (data) => data.Name && data.Name.toString() === ref.Name
             );
+            debugger;
             if (referenceDataNameIndex > -1) {
               this.addReferencesPair(
                 referencesDataList[referenceDataNameIndex],
@@ -192,71 +194,6 @@ export class ImportAtdService {
         }
       }
     });
-    //    else if (
-    //     ref.Type === ReferenceType.GenericList
-    //   ) {
-    //     switch (ref.Type) {
-    //       case ReferenceType.UserDefinedTable:
-    //         referencesDataList = referencesData.udts;
-
-    //         let referenceDataIDIndedx = referencesDataList.findIndex(
-    //           (data) => data.InternalID && data.InternalID.toString() === ref.ID
-    //         );
-    //         let referenceFileNameIndedx = referencesDataList.findIndex(
-    //           (data) => data.FileName && data.FileName.toString() === ref.Name
-    //         );
-    //         let referenceFileTableIdIndedx = referencesDataList.findIndex(
-    //           (data) => data.TableID && data.TableID.toString() === ref.ID
-    //         );
-    //         if (referenceDataIDIndedx > -1) {
-    //           this.addReferencesPair(
-    //             referencesData[referenceDataIDIndedx],
-    //             ref,
-    //             referencesMap
-    //           );
-    //         }
-    //         if (referenceFileNameIndedx > -1) {
-    //           this.addReferencesPair(
-    //             referencesData[referenceFileNameIndedx],
-    //             ref,
-    //             referencesMap
-    //           );
-    //         }
-    //         if (referenceFileTableIdIndedx > -1) {
-    //           this.addReferencesPair(
-    //             referencesData[referenceFileTableIdIndedx],
-    //             ref,
-    //             referencesMap
-    //           );
-    //         }
-    //         break;
-
-    //       case ReferenceType.Filter:
-    //         let referenceDataFileNameIndex = referencesDataList.findIndex(
-    //           (data) => data.FileName && data.FileName.toString() === ref.Name
-    //         );
-    //         let referenceDataIDIndex = referencesDataList.findIndex(
-    //           (data) => data.InternalID && data.InternalID.toString() === ref.ID
-    //         );
-    //         let referenceDataTableIDIndex = referencesDataList.findIndex(
-    //           (data) => data.TableID && data.TableID.toString() === ref.ID
-    //         );
-    //         referencesDataList = referencesData.filters;
-    //         if (
-    //           referenceDataFileNameIndex > -1 ||
-    //           referenceDataIDIndex > -1 ||
-    //           referenceDataTableIDIndex > -1
-    //         )
-    //           this.addReferencesPair(
-    //             referencesDataList[referenceDataFileNameIndex],
-    //             ref,
-    //             referencesMap
-    //           );
-
-    //         break;
-    //     }
-    //   }
-    // });
 
     console.log("referencesData" + referencesData);
     console.log("referencesMap: " + referencesMap);
@@ -273,7 +210,11 @@ export class ImportAtdService {
     console.log("at addReferencesPair");
     let destinitionRef = {} as Reference;
 
-    destinitionRef.ID = element.InternalID.toString();
+    if (element.InternalID === undefined) {
+      destinitionRef.ID = null;
+    } else {
+      destinitionRef.ID = element.InternalID.toString();
+    }
     destinitionRef.UUID = element.UUID;
     destinitionRef.Content = ref.Content;
     destinitionRef.Path = element.URL;
@@ -297,6 +238,7 @@ export class ImportAtdService {
   }
 
   private async GetReferencesData(
+    subtype: string,
     exportReferences: Reference[]
   ): Promise<ReferenceData> {
     let profileIndex = exportReferences.findIndex(
@@ -322,16 +264,31 @@ export class ImportAtdService {
     );
     let referencesData = {} as ReferenceData;
 
+    debugger;
     if (profileIndex > -1) {
       await this.getReferencesDataObject("/profiles").then(
         (res) => (referencesData.Profile = res)
       );
     }
     if (genericListIndex > -1) {
-      await this.getReferencesMetaDataGenericList(`accounts`).then(
-        (res) => (referencesData.GenericList = res)
-      );
-      await this.getReferencesMetaDataGenericList(
+      let uuids = exportReferences.map(function (v) {
+        if (v.UUID !== undefined && v.UUID !== Guid.empty()) {
+          return String(`'${v.UUID}'`);
+        }
+      });
+      let names = exportReferences.map(function (v) {
+        if (v.Name !== undefined) {
+          return String(`'${v.Name}'`);
+        }
+      });
+      await this.getReferencesMetaDataGenericListByUUIDS(
+        uuids,
+        names,
+        `accounts`
+      ).then((res) => (referencesData.GenericList = res));
+      await this.getReferencesMetaDataGenericListByUUIDS(
+        uuids,
+        names,
         `all_activities`
       ).then((res) => referencesData.GenericList.concat(res));
     }
@@ -351,7 +308,7 @@ export class ImportAtdService {
       );
     }
     if (filterIndex > -1) {
-      await this.getReferencesMetaDataObject("filters").then(
+      await this.getTransactionItemScope(subtype).then(
         (res) => (referencesData.Filter = res)
       );
     }
@@ -382,9 +339,29 @@ export class ImportAtdService {
   async getReferencesMetaDataObject(type: string) {
     return await this.papiClient.get(`/meta_data/${type}`);
   }
-  async getReferencesMetaDataGenericList(type: string) {
-    return await this.papiClient.get(`/meta_data/${type}/data_views`);
+
+  async getTransactionItemScope(subtype: string) {
+    return await this.papiClient.get(
+      `/meta_data/lists/all_activities?where=Name='Transaction Item Scope'`
+    );
   }
+  async getReferencesMetaDataGenericListByUUIDS(
+    uuids: string[],
+    names: string[],
+    type: string
+  ) {
+    uuids = uuids.filter((x) => x !== undefined);
+    names = names.filter((x) => x !== undefined);
+
+    let whereClauseOfUUIDs = uuids.join(",");
+    let whereClauseOfNames = names.join(",");
+
+    debugger;
+    return await this.papiClient.get(
+      `/meta_data/lists/${type}?where=UUID IN (${whereClauseOfUUIDs}) OR Name IN (${whereClauseOfNames})`
+    );
+  }
+
   getTypes(successFunc = null, errorFunc = null) {
     let types: KeyValuePair<string>[] = [];
     this.addonService.httpGetApiCall(

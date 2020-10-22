@@ -6,7 +6,7 @@ export interface Reference {
   Name: string;
   UUID?: string;
   Path?: string;
-  Content?: string;
+  Content?: any;
 }
 
 // export enum ReferenceType {

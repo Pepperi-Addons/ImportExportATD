@@ -34,8 +34,7 @@ import { ImportAtdComponent } from "./import-atd/import-atd.component";
 import { ListViewComponent } from "./list-view/list-view.component";
 import { PepperiListContComponent } from "./pepperi-list/pepperi-list.component";
 
-function getUrl() {
-}
+function getUrl() {}
 @NgModule({
   declarations: [
     ImportAtdComponent,
@@ -105,5 +104,8 @@ export class Guid {
         v = c == "x" ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
+  }
+  static empty() {
+    return "00000000-0000-0000-0000-000000000000";
   }
 }

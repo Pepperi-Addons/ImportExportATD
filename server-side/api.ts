@@ -235,7 +235,7 @@ async function getSettingsReferences(service: MyService, references: Reference[]
         const filter = await service.papiClient.get(`/meta_data/filters/${settings.TransactionItemsScopeFilterID}`);
         const reference: Reference = {
             ID: filter.InternalID,
-            Name: filter.Name,
+            Name: 'Transaction Item Scope',
             Type: ReferenceType.Filter,
             UUID: filter.UUID,
             Content: JSON.stringify(filter.Data),
@@ -311,6 +311,7 @@ async function getWorkflowReferences(service: MyService, references: Reference[]
             Type: ReferenceType[element.Type],
             UUID: element.UUID,
             Path: element.Path,
+            Content: element.Content,
         };
         const index = references.findIndex((x) => x.ID == reference.ID);
         if (index === -1) {
@@ -348,7 +349,7 @@ export async function importAtd(client: Client, request: Request) {
 
     const service = new MyService(client);
     const fixReferencesPromises: [Promise<boolean>, Promise<boolean>, Promise<boolean>] = [
-        fixProfilesOfDataViews(atd.DataViews, map),
+        fixProfilesOfDataViews(subtypeid, atd.DataViews, map),
         fixReferencesOfFields(service, atd.Fields, map),
         fixWorkflowReferences(atd.Workflow, map),
     ];
@@ -404,7 +405,7 @@ async function upsertWorkflow(service: MyService, workflow: any, type: string, s
         console.log(`post workflow succeeded`);
         return true;
     } catch (err) {
-        console.log(
+        console.error(
             `post Workflow : failed`,
             `type: ${type}`,
             `subtype: ${subtype}`,
@@ -569,49 +570,12 @@ async function fixWorkflowReferences(workflow: any, map: ReferencesMap): Promise
             'HTML_FILE_ID',
             'ACCOUNT_LIST_ID',
             'ACTIVITY_LIST_ID',
+            'SECRET_KEY',
+            'WEBHOOK_URL',
         ];
         console.log(`workflow: ${JSON.stringify(workflow)}`);
         getReferecesObjects(workflow.WorkflowObject.WorkflowTransitions, workflow, referencesKeys, map);
         getReferecesObjects(workflow.WorkflowObject.WorkflowPrograms, workflow, referencesKeys, map);
-
-        function getReferecesObjects(transitions: any, workflow: any, referencesKeys: string[], map: ReferencesMap) {
-            transitions.forEach((transition) => {
-                transition.Actions.forEach((action) => {
-                    const workflowActionsWithRerefences = WorkflowActionsWithRerefences.values();
-                    if (
-                        workflowActionsWithRerefences.indexOf(
-                            WorkflowActionsWithRerefences.toString(action.ActionType),
-                        ) > -1
-                    ) {
-                        Object.keys(action.KeyValue).forEach((element) => {
-                            if (referencesKeys.indexOf(element) > -1) {
-                                if (element) {
-                                    //action.KeyValue.forEach((keyvalue) => {
-                                    switch (element) {
-                                        case 'DESTINATION_ATD_ID':
-                                            findIDAndReplaceKeyValueWorkflow(map, action, 'DESTINATION_ATD_ID');
-                                            break;
-                                        case 'FILE_ID':
-                                            findIDAndReplaceKeyValueWorkflow(map, action, 'FILE_ID');
-                                            break;
-                                        case 'HTML_FILE_ID':
-                                            findIDAndReplaceKeyValueWorkflow(map, action, 'HTML_FILE_ID');
-                                            break;
-                                        case 'ACCOUNT_LIST_ID':
-                                            replaceListUUID(action, map, 'ACCOUNT_LIST_ID');
-                                            break;
-                                        case 'ACTIVITY_LIST_ID':
-                                            replaceListUUID(action, map, 'ACTIVITY_LIST_ID');
-                                            break;
-                                    }
-                                    //});
-                                }
-                            }
-                        });
-                    }
-                });
-            });
-        }
 
         return true;
     } catch (err) {
@@ -619,12 +583,59 @@ async function fixWorkflowReferences(workflow: any, map: ReferencesMap): Promise
     }
 }
 
-async function fixProfilesOfDataViews(dataViews: DataView[], map: ReferencesMap): Promise<boolean> {
+function getReferecesObjects(transitions: any, workflow: any, referencesKeys: string[], map: ReferencesMap) {
+    transitions.forEach((transition) => {
+        transition.Actions.forEach((action) => {
+            const workflowActionsWithRerefences = WorkflowActionsWithRerefences.values();
+            if (workflowActionsWithRerefences.indexOf(WorkflowActionsWithRerefences.toString(action.ActionType)) > -1) {
+                Object.keys(action.KeyValue).forEach((element) => {
+                    if (referencesKeys.indexOf(element) > -1) {
+                        if (element) {
+                            //action.KeyValue.forEach((keyvalue) => {
+                            switch (element) {
+                                case 'DESTINATION_ATD_ID':
+                                    findIDAndReplaceKeyValueWorkflow(map, action, 'DESTINATION_ATD_ID');
+                                    break;
+                                case 'FILE_ID':
+                                    findIDAndReplaceKeyValueWorkflow(map, action, 'FILE_ID');
+                                    break;
+                                case 'HTML_FILE_ID':
+                                    findIDAndReplaceKeyValueWorkflow(map, action, 'HTML_FILE_ID');
+                                    break;
+                                case 'ACCOUNT_LIST_ID':
+                                    replaceListUUID(action, map, 'ACCOUNT_LIST_ID');
+                                    break;
+                                case 'ACTIVITY_LIST_ID':
+                                    replaceListUUID(action, map, 'ACTIVITY_LIST_ID');
+                                    break;
+                                case 'WEBHOOK_URL':
+                                    replaceWebhookUrl(action, map, 'WEBHOOK_URL');
+                                    break;
+                                case 'SECRET_KEY':
+                                    replaceSecretKey(action, map, 'SECRET_KEY');
+                                    break;
+                            }
+                            //});
+                        }
+                    }
+                });
+            }
+        });
+    });
+}
+
+async function fixProfilesOfDataViews(subtypeid: number, dataViews: DataView[], map: ReferencesMap): Promise<boolean> {
     try {
         dataViews.forEach((dataview) => {
+            if (dataview.Context?.Object?.InternalID) {
+                dataview.Context.Object.InternalID = Number(subtypeid);
+            }
+            delete dataview.InternalID;
             const profileID = dataview.Context?.Profile.InternalID;
             const pairIndex = map.Pairs.findIndex((x) => x.origin.ID === String(profileID));
-            dataview?.Context?.Profile ?? map.Pairs[pairIndex].destinition;
+            if (dataview?.Context?.Profile?.InternalID) {
+                dataview.Context.Profile.InternalID = Number(map.Pairs[pairIndex].destinition.ID);
+            }
         });
         return true;
     } catch (err) {
@@ -648,4 +659,17 @@ function replaceListUUID(action: any, map: ReferencesMap, key: string) {
     }
 }
 
+function replaceWebhookUrl(action: any, map: ReferencesMap, key: string) {
+    const pairIndex = map.Pairs.findIndex((x) => x.origin.UUID === String(action.ActionID));
+    if (pairIndex > -1) {
+        action.KeyValue[key] = map.Pairs[pairIndex].destinition.Content.WEBHOOK_URL;
+    }
+}
+
+function replaceSecretKey(action: any, map: ReferencesMap, key: string) {
+    const pairIndex = map.Pairs.findIndex((x) => x.origin.UUID === String(action.ActionID));
+    if (pairIndex > -1) {
+        action.KeyValue[key] = map.Pairs[pairIndex].destinition.Content.SECRET_KEY;
+    }
+}
 //#endregion

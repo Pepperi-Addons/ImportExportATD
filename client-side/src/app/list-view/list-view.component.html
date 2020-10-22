@@ -1,3 +1,4 @@
 <div>
-    <pep-list #list [service]="service" [pepperiListOutputs]="pepperiListOutputs" [conflicts]="conflicts"></pep-list>
+    <pep-list #list  *ngIf="conflicts" [service]="conflictService" [pepperiListOutputs]="pepperiListOutputs" [conflicts]="conflicts"></pep-list>
+    <pep-list #list *ngIf="webhooks" [service]="webhookService" [pepperiListOutputs]="pepperiListOutputs" [webhooks]="webhooks"></pep-list>
 </div>

@@ -1,4 +1,7 @@
 export const WorkflowActionsWithRerefences = Object.freeze({
+  Webhook: 2,
+  BranchWebhook: 7,
+  StopConditionWebhook: 10,
   DistributeActivity: 12,
   NavigateTo: 17,
   StopConditionCustomForm: 18,
@@ -23,6 +26,12 @@ export const WorkflowActionsWithRerefences = Object.freeze({
         return "CopyOrder";
       case this.DistributeActivityWithRef:
         return "DistributeActivityWithRef";
+      case this.Webhook:
+        return "Webhook";
+      case this.BranchWebhook:
+        return "BranchWebhook";
+      case this.StopConditionWebhook:
+        return "StopConditionWebhook";
     }
     return "none";
   },

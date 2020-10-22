@@ -28,10 +28,51 @@ import { TranslateService } from "@ngx-translate/core";
 import { GridDataView, DataViewFieldTypes } from "@pepperi-addons/papi-sdk";
 import { Conflict } from "../../../../models/Conflict";
 import { ResolutionOption } from "../../../../models/ResolutionOption.enum";
+import { Webhook } from "../../../../models/Webhook";
 
 //import { PluginJsonFilter } from 'src/app/plugin.model';
 
 export interface PepperiListService {
+  getDataView(translates): GridDataView;
+  getList(): Promise<any[]>;
+  getActions(
+    translates
+  ): {
+    Key: string;
+    Title: string;
+    Filter: (obj: any) => boolean;
+    Action: (obj: any) => void;
+  }[];
+  // rightButtons?(
+  //   translates
+  // ): {
+  //   Title: string;
+  //   Icon: string;
+  //   Action: () => void;
+  // }[];
+}
+
+export interface PepperiListWebhooksService {
+  getDataView(translates): GridDataView;
+  getList(): Promise<any[]>;
+  getActions(
+    translates
+  ): {
+    Key: string;
+    Title: string;
+    Filter: (obj: any) => boolean;
+    Action: (obj: any) => void;
+  }[];
+  // rightButtons?(
+  //   translates
+  // ): {
+  //   Title: string;
+  //   Icon: string;
+  //   Action: () => void;
+  // }[];
+}
+
+export interface PepperiListConflictsService {
   getDataView(translates): GridDataView;
   getList(): Promise<any[]>;
   getActions(
@@ -72,6 +113,7 @@ export class PepperiListContComponent implements OnInit {
   pepperiListOutputs;
 
   @Input() conflicts: Conflict[];
+  @Input() webhooks: Webhook[];
 
   list: any[];
   pepperiListOutputsTest: any; // to remove
@@ -135,10 +177,21 @@ export class PepperiListContComponent implements OnInit {
           notifySortingChanged: (event) => this.onListSortingChange(event),
           notifyFieldClicked: (event) => this.onCustomizeFieldClick(event),
           notifyValueChanged: (event) => {
-            let objectOndex = this.conflicts.findIndex(
-              (x) => x.UUID === event.Id
-            );
-            this.conflicts[objectOndex].Resolution = event.Value;
+            if (this.conflicts != undefined) {
+              let objectOndex = this.conflicts.findIndex(
+                (x) => x.UUID === event.Id
+              );
+              this.conflicts[objectOndex].Resolution = event.Value;
+            } else if (this.webhooks != undefined) {
+              let objectOndex = this.webhooks.findIndex(
+                (x) => x.UUID === event.Id
+              );
+              if (event.ApiName === "SecretKey") {
+                this.webhooks[objectOndex].SecretKey = event.Value;
+              } else if (event.ApiName === "Url") {
+                this.webhooks[objectOndex].Url = event.Value;
+              }
+            }
             this.loadlist();
           },
           notifySelectedItemsChanged: (event) =>
@@ -189,6 +242,9 @@ export class PepperiListContComponent implements OnInit {
         "Name_ConflictResolutionColumn",
         "Object_ConflictResolutionColumn",
         "Conflict_Resolution_Title",
+        "Object_WebhookUrlColumn",
+        "Object_WebhookSecretKeyColumn",
+        "Conflict_Webhook_Title",
       ])
       .subscribe((translates) => {
         //const topRightButtons = [];
@@ -275,12 +331,16 @@ export class PepperiListContComponent implements OnInit {
         "Conflict_Resolution_Title",
         "Conflict_Resolution_Type_Owerwrite",
         "Conflict_Resolution_Type_UseExist",
+        "Object_WebhookUrlColumn",
+        "Object_WebhookSecretKeyColumn",
+        "Conflict_Webhook_Title",
       ])
       .subscribe(async (translates) => {
         const dataView = this.service.getDataView(translates);
 
-        this.list = this.conflicts;
-        const oldList = await this.service.getList();
+        //this.list = this.conflicts;
+        debugger;
+        this.list = await this.service.getList();
         const rows: PepperiRowData[] = this.list.map((x) => {
           const res = new PepperiRowData();
           res.Fields = dataView.Fields.map((field, i) => {
@@ -288,9 +348,11 @@ export class PepperiListContComponent implements OnInit {
               ApiName: field.FieldID,
               Title: field.Title,
               Enabled:
-                field.Title === `Resulotion` &&
-                this.getValue(x, field.FieldID) !=
-                  ResolutionOption.toString(ResolutionOption.CreateNew)
+                (field.Title === `Resulotion` &&
+                  this.getValue(x, field.FieldID) !=
+                    ResolutionOption.toString(ResolutionOption.CreateNew)) ||
+                field.Title === `Web service URL` ||
+                field.Title === `Secret key`
                   ? true
                   : false,
               XAlignment: 1,

@@ -11,5 +11,8 @@
   "Conflict_Resolution_Title": "Conflict Resolution",
   "Conflict_Resolution_Type_Owerwrite": "Owerwrite existing",
   "Conflict_Resolution_Type_UseExist": "Use existing",
-  "Archive_Confirm": "OK"
+  "Archive_Confirm": "OK",
+  "Object_WebhookUrlColumn": "Web service URL",
+  "Object_WebhookSecretKeyColumn": "Secret key",
+  "Conflict_Webhook_Title": "Webhook validator"
 }

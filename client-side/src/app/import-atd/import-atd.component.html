@@ -11,7 +11,10 @@
     <!-- <button type="button" class="btn pepperi-button mat-button strong color-main sm pull-right flip" (click)="exportAtd(selectedActivity)">
             {{ 'Submit_Btn_Title' | translate }}
         </button> -->
-    <div class="container" *ngIf="!showConflictResolution">
+    <div
+      class="container"
+      *ngIf="!showConflictResolution && !showWebhooksResolution"
+    >
       <mat-select [(ngModel)]="selectedActivity">
         <mat-option>Please Select A Value</mat-option>
         <mat-option
@@ -65,7 +68,33 @@
       <button
         type="button"
         class="btn pepperi-button mat-button strong color-main sm flip"
-        (click)="onOkClicked(selectedActivity)"
+        (click)="onOkConflictsClicked(selectedActivity)"
+      >
+        {{ "OK_Btn_Title" | translate }}
+      </button>
+    </div>
+    <div
+      id="webhooksResolution"
+      class="wide text-center"
+      *ngIf="showWebhooksResolution"
+    >
+      <app-list-view
+        #webhooksListView
+        [webhooks]="webhooks"
+        [pepperiListOutputs]="pepperiListOutputs"
+        (actionClicked)="onActionClicked($event)"
+      ></app-list-view>
+      <button
+        type="button"
+        class="btn pepperi-button mat-button strong color-main sm flip margin-right"
+        (click)="onCancelClicked(selectedActivity)"
+      >
+        {{ "Cancel_Btn_Title" | translate }}
+      </button>
+      <button
+        type="button"
+        class="btn pepperi-button mat-button strong color-main sm flip"
+        (click)="onOkWebhooksClicked(selectedActivity)"
       >
         {{ "OK_Btn_Title" | translate }}
       </button>
