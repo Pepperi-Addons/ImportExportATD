@@ -1,10 +1,10 @@
-import { Reference } from './reference';
+import { Reference } from "./reference";
 
-export interface Pair {
-    origin: Reference;
-    destinition: Reference;
+export interface Mapping {
+  Origin: Reference;
+  Destination: Reference;
 }
 
-export interface ReferencesMap {
-    Pairs: Pair[];
+export interface References {
+  Mapping: Mapping[];
 }

@@ -1,9 +1,9 @@
 export const ReferenceType = Object.freeze({
   None: 0,
-  GenericList: 1,
-  ActivityTypeDefinition: 2,
+  List: 1,
+  TypeDefinition: 2,
   Webhook: 3,
-  CustomizationFile: 4,
+  FileStorage: 4,
   Profile: 5,
   Catalog: 6,
   Filter: 7,
@@ -15,12 +15,12 @@ export const ReferenceType = Object.freeze({
         return "None";
       case this.Profile:
         return "Profile";
-      case this.GenericList:
-        return "GenericList";
-      case this.CustomizationFile:
-        return "CustomizationFile";
-      case this.ActivityTypeDefinition:
-        return "ActivityTypeDefinition";
+      case this.List:
+        return "List";
+      case this.FileStorage:
+        return "FileStorage";
+      case this.TypeDefinition:
+        return "TypeDefinition";
       case this.Catalog:
         return "Catalog";
       case this.Filter:

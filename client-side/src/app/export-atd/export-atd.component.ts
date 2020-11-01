@@ -60,11 +60,11 @@ export class ExportAtdComponent implements OnInit {
       const exportAtdResult = this.exportatdService.papiClient.addons.api
         .uuid(this.exportatdService.pluginUUID)
         .file("api")
-        .func("exportAtd")
+        .func("export_type_definition")
         .get({ type: typeString, subtype: subtypeid })
         .then(
           (res: any) => {
-            self.data = res;
+            self.data = res.URL;
             self.userService.setShowLoading(false);
           },
           (error) => {}

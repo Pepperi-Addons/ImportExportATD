@@ -4,7 +4,7 @@ import { DataView, ApiFieldObject, UserDefinedTableMetaData, ATDMetaData } from 
 import fetch from 'node-fetch';
 import jwt_decode from 'jwt-decode';
 import { ActivityTypeDefinition } from '../models/activityTypeDefinition';
-import { ReferencesMap } from '../models/referencesMap';
+import { References } from '../models/referencesMap';
 import { Reference } from '../models/reference';
 import { AddonOwner } from '../models/addonOwner';
 import { ReferenceType } from '../models/referenceType';
@@ -14,17 +14,18 @@ import { ATDSettings } from '@pepperi-addons/papi-sdk';
 
 // #region export_atd
 
-export async function exportAtd(client: Client, request: Request) {
+export async function export_type_definition(client: Client, request: Request) {
     const service = new MyService(client);
-    const references: Reference[] = [];
     const params = request.query;
 
     const type = params.type;
     const subtypeid = params.subtype;
+    const url = await doExport(type, subtypeid, service);
+    return url;
+}
 
-    const decoded = jwt_decode(client.OAuthAccessToken);
-    const distUUID = decoded['pepperi.distributoruuid'];
-
+async function doExport(type: string, subtypeid: string, service: MyService): Promise<any> {
+    const references: Reference[] = [];
     let atd = {} as ActivityTypeDefinition;
     let atdMetaData: ATDMetaData;
     let fields: ApiFieldObject[];
@@ -34,6 +35,7 @@ export async function exportAtd(client: Client, request: Request) {
     let workflow;
 
     const getDataPromises: Promise<any>[] = [];
+
     getDataPromises.push(service.papiClient.metaData.type(type).types.subtype(subtypeid).get());
     getDataPromises.push(
         service.papiClient.metaData.dataViews.find({
@@ -76,25 +78,24 @@ export async function exportAtd(client: Client, request: Request) {
         await Promise.all(getReferencesPromises).then(async (result2) => {
             console.log(`result2: ${result2}`);
             atd = {
+                UUID: '', //atdMetaData.UUID,
                 InternaID: String(atdMetaData.TypeID),
-                DistributorUUID: distUUID,
-                CreationDate: atdMetaData.CreationDate,
-                ModificationDate: atdMetaData.ModificationDate,
+                CreationDateTime: atdMetaData.CreationDate,
+                ModificationDateTime: atdMetaData.ModificationDate,
                 Hidden: atdMetaData.Hidden,
                 Description: atdMetaData.Description,
                 ExternalID: atdMetaData.ExternalID,
-                Owner: atdMetaData.Owner,
                 Addons: [],
                 Settings: settings,
                 Fields: fields,
-                LinesFields: [],
+                LineFields: [],
                 Workflow: workflow,
                 References: references,
                 DataViews: dataViews,
             };
 
             if (linesFields != null) {
-                atd.LinesFields = linesFields;
+                atd.LineFields = linesFields;
             }
             const handleAddonPromises: Promise<void>[] = [];
             handleAddonPromises.push(fillAddonReferencesAsync(service, atd, type, subtypeid));
@@ -111,7 +112,7 @@ export async function exportAtd(client: Client, request: Request) {
         body: JSON.stringify(atd),
     });
 
-    return presignedUrl.DownloadURL;
+    return { URL: presignedUrl.DownloadURL };
 }
 
 async function fillAddonReferencesAsync(
@@ -139,26 +140,12 @@ async function fillAddonReferencesAsync(
             atd.Addons.push(addon);
         });
     }
-    // atd.Fields.forEach((field) => {
-    //     FillAddonOwnerOfField(addons, field, atd);
-    // });
-    // atd.LinesFields?.forEach((field) => {
-    //     FillAddonOwnerOfField(addons, field, atd);
-    // });
-    // atd.References.forEach((element) => {
-    //     if (element.Type == 'UserDefinedTable') {
-    //         const addonIndex = addons.findIndex((x) => x.TableID == element.ID);
-    //         if (addonIndex > 0) {
-    //             insertOwnerAddonIfNotExist(addonIndex, element.ID, addons, atd);
-    //         }
-    //     }
-    // });
     atd.Addons = addons;
 }
 
 async function callExportOfAddons(service: MyService, atd: ActivityTypeDefinition) {
     atd.Addons.forEach((addon) => {
-        service.papiClient.addons.installedAddons.addonUUID(addon.UUID).install;
+        service.papiClient.addons.installedAddons.addonUUID(addon.UUID).install(); // Should be export
     });
 }
 
@@ -190,7 +177,7 @@ async function getSettingsReferences(service: MyService, references: Reference[]
             const reference: Reference = {
                 ID: String(accontsMetaData[accountIndex].TypeID),
                 Name: accontsMetaData[accountIndex].ExternalID,
-                Type: ReferenceType.ActivityTypeDefinition,
+                Type: ReferenceType.TypeDefinition,
             };
             const isExist = references.findIndex((x) => x.ID == reference.ID);
             if (isExist === -1) {
@@ -205,7 +192,7 @@ async function getSettingsReferences(service: MyService, references: Reference[]
             const reference: Reference = {
                 ID: String(accontsMetaData[accountIndex].TypeID),
                 Name: accontsMetaData[accountIndex].ExternalID,
-                Type: ReferenceType.ActivityTypeDefinition,
+                Type: ReferenceType.TypeDefinition,
             };
             const isExist = references.findIndex((x) => x.ID == reference.ID);
             if (isExist === -1) {
@@ -258,7 +245,7 @@ async function getFieldsReferences(service: MyService, references: Reference[], 
                     const reference: Reference = {
                         ID: String(res[index].TypeID),
                         Name: res[index].ExternalID,
-                        Type: ReferenceType.ActivityTypeDefinition,
+                        Type: ReferenceType.TypeDefinition,
                         UUID: field.TypeSpecificFields.ReferenceTo.UUID,
                     };
                     const isExist = references.findIndex((x) => x.ID == reference.ID);
@@ -315,7 +302,7 @@ async function getWorkflowReferences(service: MyService, references: Reference[]
         };
         const index = references.findIndex((x) => x.ID == reference.ID);
         if (index === -1) {
-            if (reference.Type === ReferenceType.CustomizationFile) {
+            if (reference.Type === ReferenceType.FileStorage) {
                 service.papiClient.fileStorage
                     .get(Number(reference.ID))
                     .then((res) => (reference.Path = JSON.parse(JSON.stringify(res)).URL));
@@ -329,33 +316,67 @@ async function getWorkflowReferences(service: MyService, references: Reference[]
 
 //#region import_atd
 
-export async function importAtd(client: Client, request: Request) {
+export async function import_type_definition(client: Client, request: Request) {
     const params = request.query;
     const type = params.type;
     const subtypeid = params.subtype;
     const body = request.body;
-    const map: ReferencesMap = body.ReferencesMap;
-    let succeeded = true;
-    const url: string = body.ExportAtdResultURL;
-    let atd = <ActivityTypeDefinition>{};
+    const map: References = body.References;
+    const url: string = body.URL;
+    const service = new MyService(client);
+    request.method = 'POST';
+    const distUUID = getDistributorUUID(client);
 
+    const backupAtd = await doExport(type, subtypeid, service);
+
+    const succeeded = await doImport(type, subtypeid, url, map, service);
+
+    if (succeeded) {
+        return `success`;
+    } else {
+        await doImport(type, subtypeid, backupAtd.URL, null, service);
+        return `failed`;
+    }
+}
+
+function getDistributorUUID(client: Client) {
+    const decoded = jwt_decode(client.OAuthAccessToken);
+    const distUUID = decoded['pepperi.distributoruuid'];
+    return distUUID;
+}
+
+async function callImportOfAddons(service: MyService, atd: ActivityTypeDefinition) {
+    atd.Addons.forEach((addon) => {
+        service.papiClient.addons.installedAddons.addonUUID(addon.UUID).install(); // Should be import
+    });
+}
+
+async function doImport(
+    type: string,
+    subtypeid: string,
+    url: string,
+    map: References | null,
+    service: MyService,
+): Promise<boolean> {
+    let atd = <ActivityTypeDefinition>{};
+    let succeeded = false;
     await fetch(url, {
         method: `GET`,
     })
         .then((response) => response.json())
         .then((data) => (atd = data));
 
-    request.method = 'POST';
+    const fixReferencesPromises: Promise<boolean>[] = []; /// array of promises.
 
-    const service = new MyService(client);
-    const fixReferencesPromises: [Promise<boolean>, Promise<boolean>, Promise<boolean>] = [
-        fixProfilesOfDataViews(subtypeid, atd.DataViews, map),
-        fixReferencesOfFields(service, atd.Fields, map),
-        fixWorkflowReferences(atd.Workflow, map),
-    ];
+    if (map !== null && map != undefined) {
+        // const fixReferencesPromises: [Promise<boolean>, Promise<boolean>, Promise<boolean>] = []
+        fixReferencesPromises.push(fixProfilesOfDataViews(Number(subtypeid), atd.DataViews, map));
+        fixReferencesPromises.push(fixReferencesOfFields(service, atd.Fields, map));
+        fixReferencesPromises.push(fixWorkflowReferences(atd.Workflow, map));
 
-    if (type === `transactions`) {
-        fixReferencesPromises.push(fixSettingsReferences(service, atd.Settings, map));
+        if (type === `transactions`) {
+            fixReferencesPromises.push(fixSettingsReferences(service, atd.Settings, map));
+        }
     }
 
     await Promise.all(fixReferencesPromises).then(async (fixReferencesResults) => {
@@ -367,7 +388,7 @@ export async function importAtd(client: Client, request: Request) {
             upsertWorkflow(service, atd.Workflow, type, subtypeid),
         ];
         if (type === `transactions`) {
-            upsertDataPromises.push(upsertFields(service, atd.LinesFields, `transaction_lines`, subtypeid));
+            upsertDataPromises.push(upsertFields(service, atd.LineFields, `transaction_lines`, subtypeid));
             upsertDataPromises.push(upsertSettings(service, type, subtypeid, atd.Settings));
         }
         await Promise.all(upsertDataPromises).then((upsertDataResults) => {
@@ -375,12 +396,7 @@ export async function importAtd(client: Client, request: Request) {
             succeeded = upsertDataResults.every((elem) => elem === true);
         });
     });
-
-    if (succeeded) {
-        return `success`;
-    } else {
-        return `failed`;
-    }
+    return succeeded;
 }
 
 async function upsertSettings(
@@ -448,9 +464,22 @@ async function upsertFields(
     subtype: string,
 ): Promise<boolean> {
     try {
-        // remove also internalID
         fields = fields.filter((item) => item.FieldID.startsWith('TSA'));
-        const res = await service.papiClient.post(`/meta_data/bulk/${type}/types/${subtype}/fields`, fields);
+        fields.forEach((f) => delete f.InternalID);
+        let currentFields = await service.papiClient.metaData
+            .type(type)
+            .types.subtype(subtype)
+            .fields.get({ include_owned: false });
+        currentFields = currentFields.filter((item) => item.FieldID.startsWith('TSA'));
+        const filedsNamesToUpsert = fields.map((f) => f.FieldID);
+        const fieldsToDelete = currentFields.filter((x) => filedsNamesToUpsert.indexOf(x.FieldID) === -1);
+        fieldsToDelete.forEach((ftd) => (ftd.Hidden = true));
+        if (fieldsToDelete.length > 0) {
+            await service.papiClient.post(`/meta_data/bulk/${type}/types/${subtype}/fields`, fieldsToDelete);
+        }
+        if (fields.length > 0) {
+            await service.papiClient.post(`/meta_data/bulk/${type}/types/${subtype}/fields`, fields);
+        }
         console.log(`post fields batch succeeded`);
         return true;
     } catch (err) {
@@ -475,14 +504,14 @@ async function upsertFields(
     // });
 }
 
-async function fixSettingsReferences(service: MyService, settings: ATDSettings, map: ReferencesMap): Promise<boolean> {
+async function fixSettingsReferences(service: MyService, settings: ATDSettings, map: References): Promise<boolean> {
     try {
         const originAccountIds = <string[]>[];
 
         settings.OriginAccountsData.IDs?.forEach((id) => {
-            const pairIndex = map.Pairs.findIndex((x) => x.origin.ID === String(id));
+            const pairIndex = map.Mapping.findIndex((x) => x.Origin.ID === String(id));
             if (pairIndex > -1) {
-                originAccountIds.push(map.Pairs[pairIndex].destinition.ID);
+                originAccountIds.push(map.Mapping[pairIndex].Destination.ID);
             }
         });
         settings.OriginAccountsData.IDs = originAccountIds;
@@ -490,32 +519,32 @@ async function fixSettingsReferences(service: MyService, settings: ATDSettings, 
         const destinitionAccountIds = <string[]>[];
 
         settings.DestinationAccountsData.IDs?.forEach((id) => {
-            const pairIndex = map.Pairs.findIndex((x) => x.origin.ID === String(id));
+            const pairIndex = map.Mapping.findIndex((x) => x.Origin.ID === String(id));
             if (pairIndex > -1) {
-                destinitionAccountIds.push(map.Pairs[pairIndex].destinition.ID);
+                destinitionAccountIds.push(map.Mapping[pairIndex].Destination.ID);
             }
         });
         settings.DestinationAccountsData.IDs = originAccountIds;
 
         const catalogsIds = <number[]>[];
         settings.CatalogIDs?.forEach((catalogID) => {
-            const pairIndex = map.Pairs.findIndex((x) => String(x.origin.ID) === String(catalogID));
+            const pairIndex = map.Mapping.findIndex((x) => String(x.Origin.ID) === String(catalogID));
             if (pairIndex > -1) {
-                catalogsIds.push(Number(map.Pairs[pairIndex].destinition.ID));
+                catalogsIds.push(Number(map.Mapping[pairIndex].Destination.ID));
             }
         });
         settings.CatalogIDs = catalogsIds;
 
-        const indexItemsScopeFilterID = map.Pairs.findIndex(
-            (x) => x.origin.ID === settings.TransactionItemsScopeFilterID,
+        const indexItemsScopeFilterID = map.Mapping.findIndex(
+            (x) => x.Origin.ID === settings.TransactionItemsScopeFilterID,
         );
         if (indexItemsScopeFilterID > -1) {
             if (
-                map.Pairs[indexItemsScopeFilterID] !== null &&
-                map.Pairs[indexItemsScopeFilterID].destinition !== null &&
-                map.Pairs[indexItemsScopeFilterID].destinition.ID !== null
+                map.Mapping[indexItemsScopeFilterID] !== null &&
+                map.Mapping[indexItemsScopeFilterID].Destination !== null &&
+                map.Mapping[indexItemsScopeFilterID].Destination.ID !== null
             ) {
-                settings.TransactionItemsScopeFilterID = map.Pairs[indexItemsScopeFilterID].destinition.ID;
+                settings.TransactionItemsScopeFilterID = map.Mapping[indexItemsScopeFilterID].Destination.ID;
             }
         }
         return true;
@@ -524,11 +553,7 @@ async function fixSettingsReferences(service: MyService, settings: ATDSettings, 
     }
 }
 
-async function fixReferencesOfFields(
-    service: MyService,
-    fields: ApiFieldObject[],
-    map: ReferencesMap,
-): Promise<boolean> {
+async function fixReferencesOfFields(service: MyService, fields: ApiFieldObject[], map: References): Promise<boolean> {
     try {
         fields.forEach(async (field) => {
             if (field.TypeSpecificFields != null) {
@@ -536,14 +561,16 @@ async function fixReferencesOfFields(
                     if (field.TypeSpecificFields.ReferenceToResourceType != null) {
                         const referenceUUID = field.TypeSpecificFields.ReferenceToResourceType.UUID;
                         if (referenceUUID != null) {
-                            const pairIndex = map.Pairs.findIndex((x) => x.origin.UUID === String(referenceUUID));
-                            field.TypeSpecificFields.ReferenceTo.ExternalID = map.Pairs[pairIndex].destinition.Name;
-                            field.TypeSpecificFields.ReferenceTo.UUID = map.Pairs[pairIndex].destinition.UUID;
+                            const pairIndex = map.Mapping.findIndex((x) => x.Origin.UUID === String(referenceUUID));
+                            field.TypeSpecificFields.ReferenceTo.ExternalID = map.Mapping[pairIndex].Destination.Name;
+                            field.TypeSpecificFields.ReferenceTo.UUID = map.Mapping[pairIndex].Destination.UUID;
                         }
                     }
                 }
                 if (field.UserDefinedTableSource != null) {
-                    const pairIndex = map.Pairs.findIndex((x) => x.origin.ID === field.UserDefinedTableSource.TableID);
+                    const pairIndex = map.Mapping.findIndex(
+                        (x) => x.Origin.ID === field.UserDefinedTableSource.TableID,
+                    );
                     // if (map.Pairs[pairIndex].destinition === null) {
                     //     const upsertUdt: UserDefinedTableMetaData = await service.papiClient.metaData.userDefinedTables.upsert(
                     //         JSON.parse(String(map.Pairs[pairIndex].origin.Content)),
@@ -562,7 +589,7 @@ async function fixReferencesOfFields(
     }
 }
 
-async function fixWorkflowReferences(workflow: any, map: ReferencesMap): Promise<boolean> {
+async function fixWorkflowReferences(workflow: any, map: References): Promise<boolean> {
     try {
         const referencesKeys: Array<string> = [
             'DESTINATION_ATD_ID',
@@ -583,8 +610,9 @@ async function fixWorkflowReferences(workflow: any, map: ReferencesMap): Promise
     }
 }
 
-function getReferecesObjects(transitions: any, workflow: any, referencesKeys: string[], map: ReferencesMap) {
+function getReferecesObjects(transitions: any, workflow: any, referencesKeys: string[], map: References) {
     transitions.forEach((transition) => {
+        console.log(`transition: ${transition.TransitionID}`);
         transition.Actions.forEach((action) => {
             const workflowActionsWithRerefences = WorkflowActionsWithRerefences.values();
             if (workflowActionsWithRerefences.indexOf(WorkflowActionsWithRerefences.toString(action.ActionType)) > -1) {
@@ -624,7 +652,7 @@ function getReferecesObjects(transitions: any, workflow: any, referencesKeys: st
     });
 }
 
-async function fixProfilesOfDataViews(subtypeid: number, dataViews: DataView[], map: ReferencesMap): Promise<boolean> {
+async function fixProfilesOfDataViews(subtypeid: number, dataViews: DataView[], map: References): Promise<boolean> {
     try {
         dataViews.forEach((dataview) => {
             if (dataview.Context?.Object?.InternalID) {
@@ -632,9 +660,9 @@ async function fixProfilesOfDataViews(subtypeid: number, dataViews: DataView[], 
             }
             delete dataview.InternalID;
             const profileID = dataview.Context?.Profile.InternalID;
-            const pairIndex = map.Pairs.findIndex((x) => x.origin.ID === String(profileID));
+            const pairIndex = map.Mapping.findIndex((x) => x.Origin.ID === String(profileID));
             if (dataview?.Context?.Profile?.InternalID) {
-                dataview.Context.Profile.InternalID = Number(map.Pairs[pairIndex].destinition.ID);
+                dataview.Context.Profile.InternalID = Number(map.Mapping[pairIndex].Destination.ID);
             }
         });
         return true;
@@ -643,33 +671,33 @@ async function fixProfilesOfDataViews(subtypeid: number, dataViews: DataView[], 
     }
 }
 
-function findIDAndReplaceKeyValueWorkflow(map: ReferencesMap, action: any, key: string) {
-    const pairIndex = map.Pairs.findIndex((x) => x.origin.ID === String(action.KeyValue[key]));
-    action.KeyValue[key] = map.Pairs[pairIndex].destinition.ID;
+function findIDAndReplaceKeyValueWorkflow(map: References, action: any, key: string) {
+    const pairIndex = map.Mapping.findIndex((x) => x.Origin.ID === String(action.KeyValue[key]));
+    action.KeyValue[key] = map.Mapping[pairIndex].Destination.ID;
 }
 
-function replaceListUUID(action: any, map: ReferencesMap, key: string) {
+function replaceListUUID(action: any, map: References, key: string) {
     let genericListUUIDOfActivity = action.KeyValue[key];
     if (genericListUUIDOfActivity.startsWith('GL_')) {
         genericListUUIDOfActivity = genericListUUIDOfActivity.substring(3, genericListUUIDOfActivity.length);
-        const pairIndex = map.Pairs.findIndex((x) => x.origin.UUID === String(genericListUUIDOfActivity));
+        const pairIndex = map.Mapping.findIndex((x) => x.Origin.UUID === String(genericListUUIDOfActivity));
         if (pairIndex > -1) {
-            action.KeyValue[key] = map.Pairs[pairIndex].destinition.UUID;
+            action.KeyValue[key] = map.Mapping[pairIndex].Destination.UUID;
         }
     }
 }
 
-function replaceWebhookUrl(action: any, map: ReferencesMap, key: string) {
-    const pairIndex = map.Pairs.findIndex((x) => x.origin.UUID === String(action.ActionID));
+function replaceWebhookUrl(action: any, map: References, key: string) {
+    const pairIndex = map.Mapping.findIndex((x) => x.Origin.UUID === String(action.ActionID));
     if (pairIndex > -1) {
-        action.KeyValue[key] = map.Pairs[pairIndex].destinition.Content.WEBHOOK_URL;
+        action.KeyValue[key] = map.Mapping[pairIndex].Destination.Content.WEBHOOK_URL;
     }
 }
 
-function replaceSecretKey(action: any, map: ReferencesMap, key: string) {
-    const pairIndex = map.Pairs.findIndex((x) => x.origin.UUID === String(action.ActionID));
+function replaceSecretKey(action: any, map: References, key: string) {
+    const pairIndex = map.Mapping.findIndex((x) => x.Origin.UUID === String(action.ActionID));
     if (pairIndex > -1) {
-        action.KeyValue[key] = map.Pairs[pairIndex].destinition.Content.SECRET_KEY;
+        action.KeyValue[key] = map.Mapping[pairIndex].Destination.Content.SECRET_KEY;
     }
 }
 //#endregion

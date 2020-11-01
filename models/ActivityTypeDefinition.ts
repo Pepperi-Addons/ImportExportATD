@@ -8,18 +8,17 @@ import {
 import { Reference } from "./reference";
 
 export interface ActivityTypeDefinition {
+  UUID: string;
   InternaID: string;
   ExternalID: string;
-  DistributorUUID: string;
   Description: string;
-  CreationDate: string;
-  ModificationDate: string;
+  CreationDateTime: string;
+  ModificationDateTime: string;
   Hidden: boolean;
-  Owner: Owner;
   Addons: AddonOwner[];
   Settings: ATDSettings;
   Fields: ApiFieldObject[];
-  LinesFields: ApiFieldObject[];
+  LineFields: ApiFieldObject[];
   DataViews: DataView[];
   Workflow: any;
   References: Reference[];

@@ -9,9 +9,9 @@ import {
 export interface ReferenceData {
   Filter: [];
   UserDefinedTable: UserDefinedTableMetaData[];
-  CustomizationFile: FileStorage[];
-  ActivityTypeDefinition: Type[];
+  FileStorage: FileStorage[];
+  TypeDefinition: Type[];
   Profile: [];
   Catalog: [];
-  GenericList: [];
+  List: [];
 }

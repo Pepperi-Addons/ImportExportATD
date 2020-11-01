@@ -6,7 +6,7 @@ import { UserService } from "pepperi-user-service";
 import { ImportAtdService } from "./import-atd.service";
 import { Reference } from "./../../../../models/reference";
 import { Conflict } from "./../../../../models/conflict";
-import { ReferencesMap, Pair } from "./../../../../models/referencesMap";
+import { References, Mapping } from "./../../../../models/referencesMap";
 import { __param } from "tslib";
 import { ListViewComponent } from "../list-view/list-view.component";
 import { Guid } from "../plugin.module";
@@ -16,6 +16,7 @@ import { KeyValuePair } from "./../../../../models/keyValuePair";
 import { ReferenceType } from "./../../../../models/referenceType";
 import { Webhook } from "./../../../../models/Webhook";
 import { ResolutionOption } from "./../../../../models/resolutionOption.enum";
+import { pairs } from "rxjs";
 
 @Component({
   selector: "app-import-atd",
@@ -44,7 +45,7 @@ export class ImportAtdComponent implements OnInit {
   typeString = ``;
   typeUUID = ``;
 
-  referenceMap: ReferencesMap;
+  referenceMap: References;
 
   pepperiListOutputs: any = {
     notifyListChanged: (event) => {},
@@ -82,22 +83,24 @@ export class ImportAtdComponent implements OnInit {
 
   async onOkConflictsClicked() {
     this.conflictsList.forEach(async (conflict) => {
-      let referenceIndex = this.referenceMap.Pairs.findIndex(
-        (pair) => pair.origin.Name === conflict.Name
+      let referenceIndex = this.referenceMap.Mapping.findIndex(
+        (pair) => pair.Origin.Name === conflict.Name
       );
       if (
         conflict.Resolution ===
         ResolutionOption.toString(ResolutionOption.CreateNew)
       ) {
         if (
-          conflict.Object ===
-          ReferenceType.toString(ReferenceType.CustomizationFile) // ReferenceType[ReferenceType.CustomizationFile]
+          conflict.Object === ReferenceType.toString(ReferenceType.FileStorage) // ReferenceType[ReferenceType.CustomizationFile]
         ) {
           debugger;
           let res = await this.upsertFileStorage(referenceIndex);
-          this.referenceMap.Pairs[
+          let destinitionRef = {} as Reference;
+          destinitionRef.ID = res.InternalID.toString();
+          destinitionRef.Name = res.FileName;
+          this.referenceMap.Mapping[
             referenceIndex
-          ].origin.ID = res.InternalID.toString();
+          ].Destination = destinitionRef;
         } else if (
           conflict.Object === ReferenceType.toString(ReferenceType.Filter)
         ) {
@@ -109,9 +112,12 @@ export class ImportAtdComponent implements OnInit {
             transactionItemScope.length === 0
           ) {
             let res = await this.upsertTransactionItemScope(referenceIndex);
-            this.referenceMap.Pairs[
+            let destinitionRef = {} as Reference;
+            destinitionRef.ID = res.InternalID.toString();
+            destinitionRef.Name = res.FileName;
+            this.referenceMap.Mapping[
               referenceIndex
-            ].origin.ID = res.InternalID.toString();
+            ].Destination = destinitionRef;
           }
         } else if (
           conflict.Object ===
@@ -119,32 +125,35 @@ export class ImportAtdComponent implements OnInit {
         ) {
           debugger;
           let res = await this.upsertUDT(referenceIndex);
-          this.referenceMap.Pairs[
+          let destinitionRef = {} as Reference;
+          destinitionRef.ID = res.InternalID.toString();
+          destinitionRef.Name = res.TableID;
+          this.referenceMap.Mapping[
             referenceIndex
-          ].origin.Name = res.TableID.toString();
+          ].Destination = destinitionRef;
         }
       } else if (
         conflict.Resolution ===
         ResolutionOption.toString(ResolutionOption.OverwriteExisting)
       ) {
         if (
-          conflict.Object ===
-          ReferenceType.toString(ReferenceType.CustomizationFile)
+          conflict.Object === ReferenceType.toString(ReferenceType.FileStorage)
         ) {
           let file: FileStorage = {
             InternalID: Number(
-              this.referenceMap.Pairs[referenceIndex].destinition.ID
+              this.referenceMap.Mapping[referenceIndex].Destination.ID
             ),
-            FileName: this.referenceMap.Pairs[referenceIndex].destinition.Name,
-            URL: this.referenceMap.Pairs[referenceIndex].origin.Path,
-            Title: this.referenceMap.Pairs[referenceIndex].destinition.Name,
+            FileName: this.referenceMap.Mapping[referenceIndex].Destination
+              .Name,
+            URL: this.referenceMap.Mapping[referenceIndex].Origin.Path,
+            Title: this.referenceMap.Mapping[referenceIndex].Destination.Name,
           };
           let res = await this.importatdService.papiClient.fileStorage.upsert(
             file
           );
-          this.referenceMap.Pairs[
+          this.referenceMap.Mapping[
             referenceIndex
-          ].destinition.ID = res.InternalID.toString();
+          ].Destination.ID = res.InternalID.toString();
         }
       }
     });
@@ -162,7 +171,7 @@ export class ImportAtdComponent implements OnInit {
 
   private async upsertUDT(referenceIndex: number) {
     let udt = JSON.parse(
-      this.referenceMap.Pairs[referenceIndex].origin.Content
+      this.referenceMap.Mapping[referenceIndex].Origin.Content
     );
     delete udt.InternalID;
     let res = await this.importatdService.papiClient.metaData.userDefinedTables.upsert(
@@ -174,7 +183,9 @@ export class ImportAtdComponent implements OnInit {
   private async upsertTransactionItemScope(referenceIndex: number) {
     let filter = {
       name: `Transaction Item Scope`,
-      Data: JSON.parse(this.referenceMap.Pairs[referenceIndex].origin.Content),
+      Data: JSON.parse(
+        this.referenceMap.Mapping[referenceIndex].Origin.Content
+      ),
       DataType: {
         ID: 10,
       },
@@ -192,7 +203,7 @@ export class ImportAtdComponent implements OnInit {
     );
     console.log(
       `afetr posting filter. body: ${JSON.stringify(
-        this.referenceMap.Pairs[referenceIndex].origin.Content
+        this.referenceMap.Mapping[referenceIndex].Origin.Content
       )}, res: ${JSON.stringify(res)}`
     );
     return res;
@@ -201,9 +212,9 @@ export class ImportAtdComponent implements OnInit {
   private async upsertFileStorage(referenceIndex: number) {
     debugger;
     let file: FileStorage = {
-      FileName: this.referenceMap.Pairs[referenceIndex].origin.Name,
-      URL: this.referenceMap.Pairs[referenceIndex].origin.Path,
-      Title: this.referenceMap.Pairs[referenceIndex].origin.Name,
+      FileName: this.referenceMap.Mapping[referenceIndex].Origin.Name,
+      URL: this.referenceMap.Mapping[referenceIndex].Origin.Path,
+      Title: this.referenceMap.Mapping[referenceIndex].Origin.Name,
       Configuration: {
         ObjectType: "Order",
         Type: "CustomClientForm",
@@ -227,23 +238,24 @@ export class ImportAtdComponent implements OnInit {
 
   async onOkWebhooksClicked() {
     this.webhooks.forEach(async (webhook) => {
-      let referenceIndex = this.referenceMap.Pairs.findIndex(
-        (pair) => pair.origin.UUID === webhook.UUID
+      let referenceIndex = this.referenceMap.Mapping.findIndex(
+        (pair) => pair.Origin.UUID === webhook.UUID
       );
       if (
         webhook.Url !==
-        this.referenceMap.Pairs[referenceIndex].origin.Content.WEBHOOK_URL
+        this.referenceMap.Mapping[referenceIndex].Origin.Content.WEBHOOK_URL
       ) {
-        this.referenceMap.Pairs[
+        this.referenceMap.Mapping[
           referenceIndex
-        ].destinition.Content.WEBHOOK_URL = webhook.Url;
+        ].Destination.Content.WEBHOOK_URL = webhook.Url;
       }
       if (
         webhook.SecretKey !==
-        this.referenceMap.Pairs[referenceIndex].origin.Content.SECRET_KEY
+        this.referenceMap.Mapping[referenceIndex].Origin.Content.SECRET_KEY
       ) {
-        this.referenceMap.Pairs[referenceIndex].destinition.Content.SECRET_KEY =
-          webhook.SecretKey;
+        this.referenceMap.Mapping[
+          referenceIndex
+        ].Destination.Content.SECRET_KEY = webhook.SecretKey;
       }
     });
     this.callToImportATD();
@@ -260,6 +272,8 @@ export class ImportAtdComponent implements OnInit {
     });
 
     let url = presignedUrl.DownloadURL;
+
+    this.deleteContentFromMap();
     console.log(
       `calling to api\import_atd. body: url: ${url}, ReferencesMap: ${JSON.stringify(
         this.referenceMap
@@ -269,10 +283,10 @@ export class ImportAtdComponent implements OnInit {
     const importAtdResult = this.importatdService.papiClient.addons.api
       .uuid(this.importatdService.pluginUUID)
       .file("api")
-      .func("importAtd")
+      .func("import_type_definition")
       .post(
         { type: this.typeString, subtype: this.selectedActivity },
-        { ExportAtdResultURL: url, ReferencesMap: this.referenceMap }
+        { URL: url, References: this.referenceMap }
       )
       .then(
         (res: any) => {
@@ -313,6 +327,22 @@ export class ImportAtdComponent implements OnInit {
       );
   }
 
+  private deleteContentFromMap() {
+    this.referenceMap.Mapping.forEach((pair) => {
+      // The content of the webhook reference should be sent in order to fix the workflow's actions
+      if (pair.Destination.Type !== ReferenceType.Webhook) {
+        delete pair.Destination.Content;
+        delete pair.Origin.Content;
+      }
+    });
+    this.referenceMap.Mapping.forEach((pair) => {
+      if (pair.Destination.Type !== ReferenceType.Webhook) {
+        delete pair.Destination.Path;
+        delete pair.Origin.Path;
+      }
+    });
+  }
+
   async onCancelClicked() {}
 
   async importAtd() {
@@ -321,9 +351,12 @@ export class ImportAtdComponent implements OnInit {
 
       await this.fillAtdNameAndUUID();
 
-      let referenceMap: ReferencesMap = await this.importatdService.buildReferencesMap(this.selectedActivity);
+      let referenceMap: References = await this.importatdService.buildReferencesMap(
+        this.selectedActivity
+      );
       this.referenceMap = referenceMap;
-      if (referenceMap && referenceMap.Pairs.length > 0) {
+      debugger;
+      if (referenceMap && referenceMap.Mapping.length > 0) {
         let identifier: String = ``;
         this.conflictsList = await this.getConflictsResulotion(referenceMap);
 
@@ -354,7 +387,7 @@ export class ImportAtdComponent implements OnInit {
       });
   }
 
-  async getConflictsResulotion(referenceMap: ReferencesMap) {
+  async getConflictsResulotion(referenceMap: References) {
     let conflicts: Conflict[] = [];
 
     const refMaps = this.importatdService.exportedAtd.References;
@@ -377,23 +410,23 @@ export class ImportAtdComponent implements OnInit {
   async handleReference(
     ref: Reference,
     conflicts: Conflict[],
-    referenceMap: ReferencesMap
+    referenceMap: References
   ) {
     if (ref.Type !== ReferenceType.Webhook) {
-      let referencedPair: Pair = referenceMap.Pairs.find(
-        (pair) => pair.origin.ID === ref.ID || pair.origin.Name === ref.Name
+      let referencedPair: Mapping = referenceMap.Mapping.find(
+        (pair) => pair.Origin.ID === ref.ID || pair.Origin.Name === ref.Name
       );
 
-      if (referencedPair.destinition === null) {
+      if (referencedPair.Destination === null) {
         // For objects with a path (such as custom form), if a matching object does not exist, then continue (create this object in the Execution step).
         if (
-          ref.Type === ReferenceType.CustomizationFile ||
+          ref.Type === ReferenceType.FileStorage ||
           ref.Type === ReferenceType.UserDefinedTable ||
           ref.Type === ReferenceType.Filter
         ) {
           const conflict: Conflict = {
             Name: ref.Name,
-            Object: ReferenceType.toString(referencedPair.origin.Type),
+            Object: ReferenceType.toString(referencedPair.Origin.Type),
             Status: `Object not found`,
             Resolution: ResolutionOption.toString(ResolutionOption.CreateNew),
             UUID: Guid.newGuid(),
@@ -422,24 +455,24 @@ export class ImportAtdComponent implements OnInit {
           this.pluginService.openTextDialog(title, content, [actionButton]);
           throw new Error(content);
         }
-      } else if (referencedPair.origin.ID === referencedPair.destinition.ID) {
+      } else if (referencedPair.Origin.ID === referencedPair.Destination.ID) {
         return;
       } else if (
-        referencedPair.origin.Name === referencedPair.destinition.Name
+        referencedPair.Origin.Name === referencedPair.Destination.Name
       ) {
-        if (ref.Type === ReferenceType.CustomizationFile) {
+        if (ref.Type === ReferenceType.FileStorage) {
           const filesAreSame = await this.compareFileContentOfOriginAndDest(
-            referencedPair.origin,
-            referencedPair.destinition
+            referencedPair.Origin,
+            referencedPair.Destination
           );
           if (!filesAreSame) {
             const conflict: Conflict = {
-              Name: referencedPair.destinition.Name,
-              Object: ReferenceType.toString(referencedPair.destinition.Type),
-              Status: `A file named ${referencedPair.destinition.Name} exists with a different content`,
+              Name: referencedPair.Destination.Name,
+              Object: ReferenceType.toString(referencedPair.Destination.Type),
+              Status: `A file named ${referencedPair.Destination.Name} exists with a different content`,
               Resolution: null,
               UUID: Guid.newGuid(),
-              ID: referencedPair.destinition.ID,
+              ID: referencedPair.Destination.ID,
               // this.resolutionOptions,
             };
             conflicts.push(conflict);
